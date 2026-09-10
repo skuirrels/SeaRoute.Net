@@ -34,4 +34,31 @@ public sealed class PortParameters
 
     /// <summary>Preferred port areas applied to both origin and destination if not specified individually.</summary>
     public IReadOnlyList<AreaFeature>? PortsInAreas { get; set; }
+
+    /// <summary>Returns a snapshot whose area lists cannot be changed through the source options.</summary>
+    public PortParameters Clone() => new()
+    {
+        OnlyTerminals = OnlyTerminals,
+        CountryPol = CountryPol,
+        CountryPod = CountryPod,
+        CountryRestricted = CountryRestricted,
+        Strict = Strict,
+        StrictArea = StrictArea,
+        PortsInAreasFrom = PortsInAreasFrom?.ToArray(),
+        PortsInAreasTo = PortsInAreasTo?.ToArray(),
+        PortsInAreas = PortsInAreas?.ToArray()
+    };
+
+    internal void Validate()
+    {
+        ValidateAreas(PortsInAreasFrom, nameof(PortsInAreasFrom));
+        ValidateAreas(PortsInAreasTo, nameof(PortsInAreasTo));
+        ValidateAreas(PortsInAreas, nameof(PortsInAreas));
+    }
+
+    private static void ValidateAreas(IReadOnlyList<AreaFeature>? areas, string name)
+    {
+        if (areas is not null && areas.Any(area => area is null))
+            throw new ArgumentException($"{name} cannot contain null areas.", name);
+    }
 }

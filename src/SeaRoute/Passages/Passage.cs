@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace SeaRoute.Passages;
 
 /// <summary>
@@ -44,7 +46,7 @@ public static class Passage
     /// <summary>Dardanelles strait connecting the Aegean Sea to the Sea of Marmara.</summary>
     public const string Dardanelles = "dardanelles";
 
-    private static readonly HashSet<string> AllPassages = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly FrozenSet<string> AllPassages = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         Babalmandab,
         Bosporus,
@@ -59,7 +61,7 @@ public static class Passage
         SouthAfrica,
         Bering,
         Dardanelles
-    };
+    }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Gets all recognized passage identifiers.

@@ -53,4 +53,23 @@ public sealed class EmissionFactors
         TransportMode.Air => AirLongHaulGramsPerTonneKm,
         _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown transport mode.")
     };
+
+    internal void Validate()
+    {
+        ValidateNonNegative(SeaGramsPerTeuKm, nameof(SeaGramsPerTeuKm));
+        if (!double.IsFinite(AverageTonnesPerTeu) || AverageTonnesPerTeu <= 0)
+            throw new ArgumentOutOfRangeException(nameof(AverageTonnesPerTeu), AverageTonnesPerTeu, "Average tonnes per TEU must be finite and positive.");
+        ValidateNonNegative(SeaGramsPerTonneKm, nameof(SeaGramsPerTonneKm));
+        ValidateNonNegative(RoadGramsPerTonneKm, nameof(RoadGramsPerTonneKm));
+        ValidateNonNegative(RailGramsPerTonneKm, nameof(RailGramsPerTonneKm));
+        ValidateNonNegative(AirShortHaulGramsPerTonneKm, nameof(AirShortHaulGramsPerTonneKm));
+        ValidateNonNegative(AirMediumHaulGramsPerTonneKm, nameof(AirMediumHaulGramsPerTonneKm));
+        ValidateNonNegative(AirLongHaulGramsPerTonneKm, nameof(AirLongHaulGramsPerTonneKm));
+    }
+
+    private static void ValidateNonNegative(double value, string name)
+    {
+        if (!double.IsFinite(value) || value < 0)
+            throw new ArgumentOutOfRangeException(name, value, "Emission factors must be finite and non-negative.");
+    }
 }

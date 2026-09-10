@@ -6,15 +6,18 @@ namespace SeaRoute.GeoJson;
 /// <summary>
 /// GeoJSON LineString geometry.
 /// </summary>
-public sealed class GeoJsonLineString
+public sealed class GeoJsonLineString : GeoJsonGeometry
 {
     /// <summary>Type of geometry: "LineString".</summary>
     [JsonPropertyName("type")]
-    public string Type => "LineString";
+    public override string Type => "LineString";
 
     /// <summary>List of coordinates as [longitude, latitude] arrays.</summary>
     [JsonPropertyName("coordinates")]
-    public List<double[]> Coordinates { get; init; } = [];
+    public new List<double[]> Coordinates { get; init; } = [];
+
+    /// <inheritdoc />
+    public override IReadOnlyList<double[]> Positions => Coordinates;
 
     /// <summary>
     /// Creates a LineString from Coordinate objects.

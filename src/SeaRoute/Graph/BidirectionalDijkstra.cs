@@ -103,7 +103,7 @@ public static class BidirectionalDijkstra
 
                 double dU = distB[u];
 
-                foreach (var edge in graph.GetEdges(u))
+                foreach (var edge in graph.GetIncomingEdges(u))
                 {
                     if (edge.Passage != null && restrictions != null && restrictions.Contains(edge.Passage))
                     {

@@ -73,7 +73,7 @@ public static class DistanceUnitExtensions
         DistanceUnit.Radians => "rad",
         DistanceUnit.NauticalMiles => "naut",
         DistanceUnit.Yards => "yd",
-        _ => "km"
+        _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, "Unknown distance unit.")
     };
 
     /// <summary>
@@ -90,8 +90,8 @@ public static class DistanceUnitExtensions
         DistanceUnit.Centimeters => 100.0,
         DistanceUnit.Radians => 1.0 / AvgEarthRadiusMeters,
         DistanceUnit.NauticalMiles => 0.000539956803,
-        DistanceUnit.Yards => 0.914411119,
-        _ => 0.001
+        DistanceUnit.Yards => 1.0936132983377078,
+        _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, "Unknown distance unit.")
     };
 
     /// <summary>
@@ -110,6 +110,6 @@ public static class DistanceUnitExtensions
         DistanceUnit.Radians => 1852.0 / AvgEarthRadiusMeters,
         DistanceUnit.NauticalMiles => 1.0,
         DistanceUnit.Yards => 2025.37,
-        _ => 1.0
+        _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, "Unknown distance unit.")
     };
 }

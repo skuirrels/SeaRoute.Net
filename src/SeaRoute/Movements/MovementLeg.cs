@@ -17,20 +17,40 @@ public sealed class MovementLeg
     /// <summary>Role of the leg within the movement.</summary>
     public LegKind Kind { get; }
 
+    /// <summary>Declared semantic type of the start point.</summary>
+    public WaypointKind FromKind { get; }
+
+    /// <summary>Declared semantic type of the end point.</summary>
+    public WaypointKind ToKind { get; }
+
     /// <summary>
     /// Initializes a new leg.
     /// </summary>
-    public MovementLeg(Location from, Location to, TransportMode mode, LegKind kind = LegKind.Main)
+    public MovementLeg(
+        Location from,
+        Location to,
+        TransportMode mode,
+        LegKind kind = LegKind.Main,
+        WaypointKind fromKind = WaypointKind.Unspecified,
+        WaypointKind toKind = WaypointKind.Unspecified)
     {
         From = from ?? throw new ArgumentNullException(nameof(from));
         To = to ?? throw new ArgumentNullException(nameof(to));
         Mode = mode;
         Kind = kind;
+        FromKind = fromKind;
+        ToKind = toKind;
     }
 
     /// <summary>Convenience constructor from two location codes.</summary>
-    public MovementLeg(string fromCode, string toCode, TransportMode mode, LegKind kind = LegKind.Main)
-        : this(Location.FromCode(fromCode), Location.FromCode(toCode), mode, kind)
+    public MovementLeg(
+        string fromCode,
+        string toCode,
+        TransportMode mode,
+        LegKind kind = LegKind.Main,
+        WaypointKind fromKind = WaypointKind.Unspecified,
+        WaypointKind toKind = WaypointKind.Unspecified)
+        : this(Location.FromCode(fromCode), Location.FromCode(toCode), mode, kind, fromKind, toKind)
     {
     }
 

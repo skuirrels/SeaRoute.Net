@@ -23,8 +23,8 @@ public sealed class PortProps
     {
         if (string.IsNullOrWhiteSpace(portId))
             throw new ArgumentException("PortId cannot be null or whitespace.", nameof(portId));
-        if (share <= 0)
-            throw new ArgumentOutOfRangeException(nameof(share), "Share must be greater than zero.");
+        if (!double.IsFinite(share) || share <= 0)
+            throw new ArgumentOutOfRangeException(nameof(share), "Share must be finite and greater than zero.");
 
         PortId = portId;
         Share = share;
@@ -43,7 +43,9 @@ public sealed class PortProps
         {
             if (TryConvertToDouble(xObj, out double lon) && TryConvertToDouble(yObj, out double lat))
             {
-                return new Coordinate(lon, lat);
+                var coordinate = new Coordinate(lon, lat);
+                coordinate.Validate();
+                return coordinate;
             }
         }
 

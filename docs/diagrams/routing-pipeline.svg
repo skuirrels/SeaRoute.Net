@@ -32,13 +32,13 @@
   <rect x="248" y="72" width="176" height="56" rx="6" fill="#f6f7f8"/>
   <rect x="248" y="72" width="176" height="56" rx="6" fill="rgba(24,24,24,0.05)" stroke="#5b6472" stroke-width="1"/>
   <text x="336" y="96" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">World ports</text>
-  <text x="336" y="112" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">3,955 ports with UN/LOCODE</text>
+  <text x="336" y="112" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">3,962 port records</text>
 
   <!-- Dataset: Marnet graph -->
   <rect x="560" y="72" width="176" height="56" rx="6" fill="#f6f7f8"/>
   <rect x="560" y="72" width="176" height="56" rx="6" fill="rgba(24,24,24,0.05)" stroke="#5b6472" stroke-width="1"/>
   <text x="648" y="96" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Marnet lane network</text>
-  <text x="648" y="112" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">9,708 lane points · 31,940 links</text>
+  <text x="648" y="112" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">9,708 lane points · 31,950 links</text>
 
   <!-- Editorial callout: what Marnet is -->
   <text x="1232" y="84" fill="#181818" font-size="14" font-style="italic" font-family="'Instrument Serif', serif" text-anchor="end">Marnet is Eurostat's global map of shipping lanes.</text>

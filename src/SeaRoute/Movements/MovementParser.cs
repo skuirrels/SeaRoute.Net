@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 namespace SeaRoute.Movements;
@@ -9,7 +10,7 @@ namespace SeaRoute.Movements;
 public static partial class MovementParser
 {
     [GeneratedRegex(
-        @"^\s*(?:(?<kind>[a-z]+)\s+)??(?:from\s+)?(?:(?:port|place|airport|station|terminal|depot)\s+)?(?<from>[A-Z]{2}[A-Z0-9]{3})\s+to\s+(?:(?:port|place|airport|station|terminal|depot)\s+)?(?<to>[A-Z]{2}[A-Z0-9]{3})\s+(?<mode>[a-z]+)\s*\.?\s*$",
+        @"^\s*(?:(?<kind>[a-z]+)\s+)??(?:from\s+)?(?:(?<from_kind>port|place|airport|station|terminal|depot)\s+)?(?<from>[A-Z]{2}[A-Z0-9]{3})\s+to\s+(?:(?<to_kind>port|place|airport|station|terminal|depot)\s+)?(?<to>[A-Z]{2}[A-Z0-9]{3})\s+(?<mode>[a-z]+)\s*\.?\s*$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex LegLine();
 
@@ -72,6 +73,24 @@ public static partial class MovementParser
         if (!TransportModeExtensions.TryParseMode(modeText, out var mode))
             throw new FormatException($"Line {lineNumber}: unknown transport mode \"{modeText}\". Expected Sea, Road, Rail or Air.");
 
-        return new MovementLeg(match.Groups["from"].Value, match.Groups["to"].Value, mode, kind);
+        return new MovementLeg(
+            match.Groups["from"].Value,
+            match.Groups["to"].Value,
+            mode,
+            kind,
+            ParseWaypointKind(match.Groups["from_kind"].Value),
+            ParseWaypointKind(match.Groups["to_kind"].Value));
     }
+
+    private static WaypointKind ParseWaypointKind(string value) => value.ToLowerInvariant() switch
+    {
+        "" => WaypointKind.Unspecified,
+        "place" => WaypointKind.Place,
+        "port" => WaypointKind.Port,
+        "airport" => WaypointKind.Airport,
+        "station" => WaypointKind.Station,
+        "terminal" => WaypointKind.Terminal,
+        "depot" => WaypointKind.Depot,
+        _ => throw new UnreachableException()
+    };
 }

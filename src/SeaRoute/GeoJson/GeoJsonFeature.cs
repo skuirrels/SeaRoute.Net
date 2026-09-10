@@ -11,9 +11,10 @@ public sealed class GeoJsonFeature
     [JsonPropertyName("type")]
     public string Type => "Feature";
 
-    /// <summary>The LineString geometry containing the route coordinates.</summary>
+    /// <summary>The route geometry, or null when no route exists under the supplied restrictions.</summary>
     [JsonPropertyName("geometry")]
-    public GeoJsonLineString Geometry { get; init; } = new();
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public GeoJsonGeometry? Geometry { get; init; }
 
     /// <summary>Calculated properties including length, duration, ports, and passages.</summary>
     [JsonPropertyName("properties")]

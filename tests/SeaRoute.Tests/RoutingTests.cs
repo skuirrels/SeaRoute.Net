@@ -18,7 +18,7 @@ public class RoutingTests
 
         route.Properties.Units.Should().Be("km");
         route.Properties.Length.Should().BeApproximately(10986.505, 1.0);
-        route.Geometry.Coordinates.Count.Should().Be(59);
+        route.Geometry!.Coordinates.Count.Should().Be(59);
 
         // A* algorithm should yield identical route length
         var routeAStar = SeaRouter.Calculate(origin, dest, appendOrigDest: false, algorithm: "astar");
@@ -34,7 +34,7 @@ public class RoutingTests
         var route = SeaRouter.Calculate(origin, dest, appendOrigDest: true);
 
         route.Properties.Length.Should().BeApproximately(10996.763, 1.0);
-        route.Geometry.Coordinates.Count.Should().Be(61);
+        route.Geometry!.Coordinates.Count.Should().Be(61);
 
         // First coord must be origin and last must be dest
         route.Geometry.Coordinates[0][0].Should().BeApproximately(origin.Longitude, 1e-5);
@@ -69,7 +69,7 @@ public class RoutingTests
         var route = SeaRouter.Calculate(shanghai, rotterdam, appendOrigDest: true);
 
         route.Properties.Length.Should().BeApproximately(19646.929, 2.0);
-        route.Geometry.Coordinates.Count.Should().Be(159);
+        route.Geometry!.Coordinates.Count.Should().Be(159);
     }
 
     [Fact]
@@ -81,14 +81,24 @@ public class RoutingTests
         var route = SeaRouter.Calculate(yokohama, losAngeles, appendOrigDest: true);
 
         route.Properties.Length.Should().BeApproximately(9126.579, 2.0);
-        route.Geometry.Coordinates.Count.Should().Be(55);
+        route.Geometry.Should().BeOfType<GeoJsonMultiLineString>();
+        var multiLine = (GeoJsonMultiLineString)route.Geometry!;
+        multiLine.Coordinates.Should().HaveCount(2);
+        multiLine.Coordinates.Should().OnlyContain(segment => segment.Count >= 2);
 
-        // Verify antimeridian continuity: longitudes should not have sudden ~360 degree jumps
-        for (int i = 0; i < route.Geometry.Coordinates.Count - 1; i++)
+        foreach (var segment in multiLine.Coordinates)
         {
-            double diff = Math.Abs(route.Geometry.Coordinates[i + 1][0] - route.Geometry.Coordinates[i][0]);
-            diff.Should().BeLessThan(180.0, "Route coordinates must be continuous across the antimeridian");
+            segment.Should().HaveCountGreaterThanOrEqualTo(2);
+            segment.Should().OnlyContain(position => position[0] >= -180.0 && position[0] <= 180.0);
+            for (int i = 0; i < segment.Count - 1; i++)
+            {
+                double diff = Math.Abs(segment[i + 1][0] - segment[i][0]);
+                diff.Should().BeLessThanOrEqualTo(180.0, "each RFC 7946 line segment stays on one side of the antimeridian");
+            }
         }
+
+        using var document = JsonDocument.Parse(route.ToJson());
+        document.RootElement.GetProperty("geometry").GetProperty("type").GetString().Should().Be("MultiLineString");
     }
 
     [Fact]

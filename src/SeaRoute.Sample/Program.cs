@@ -26,7 +26,7 @@ stopwatch.Stop();
 Print("1. Marseille to Cape Town, given as coordinates",
     $"{route.Properties.Length:N1} {route.Properties.Units}, " +
     $"{route.Properties.DurationHours:N1} h at 16 kn, " +
-    $"{route.Geometry.Coordinates.Count} points, cold start {stopwatch.ElapsedMilliseconds} ms");
+    $"{route.Geometry?.Positions.Count ?? 0} points, cold start {stopwatch.ElapsedMilliseconds} ms");
 
 // 2. Passage restrictions: Jebel Ali to St John's, Antigua, avoiding Suez, so the route goes round the Cape.
 var viaCape = SeaRouter.Calculate(At("AEJEA"), At("AGSJO"), restrictions: [Passage.Suez], returnPassages: true);
@@ -51,12 +51,12 @@ Print("4. FRPAR Paris to JPTYO Tokyo via nearest terminals",
 // 5. Alternative algorithm and units.
 var transPacific = SeaRouter.Calculate(At("JPYOK"), At("USLAX"), units: DistanceUnit.NauticalMiles, algorithm: "astar");
 Print("5. JPYOK Yokohama to USLAX Los Angeles, A*, nautical miles",
-    $"{transPacific.Properties.Length:N0} {transPacific.Properties.Units}, crosses the antimeridian without a longitude jump");
+    $"{transPacific.Properties.Length:N0} {transPacific.Properties.Units}, {transPacific.Geometry?.Type} split at the antimeridian");
 
-// 6. Unreachable when every passage is closed: empty geometry, zero length.
+// 6. Unreachable when every passage is closed: null geometry, zero length.
 var blocked = SeaRouter.Calculate(At("SGSIN"), At("GRPIR"), restrictions: [Passage.Suez, Passage.Gibraltar]);
 Print("6. SGSIN Singapore to GRPIR Piraeus with Suez and Gibraltar closed",
-    $"{blocked.Geometry.Coordinates.Count} points, {blocked.Properties.Length} km");
+    $"{blocked.Geometry?.Positions.Count ?? 0} points, {blocked.Properties.Length} km");
 
 // 7. Preferred ports per area: one route per port share. The polygon is Belgium's border, so it is coordinates.
 Coordinate[] belgium =
@@ -92,8 +92,8 @@ var finished = SeaRouter.Calculate(shanghai.Coordinate, london.Coordinate, appen
 Print("9. CNSHG Shanghai to GBLON London, step by step",
     $"request        CNSHG {shanghai.Name} ({shanghai.Source}) to GBLON {london.Name} ({london.Source}), km, 16 knots{Environment.NewLine}" +
     $"   snap           Shanghai lane point {Haversine.Distance(shanghai.Coordinate, shanghaiLane):N1} km away, London lane point {Haversine.Distance(london.Coordinate, londonLane):N1} km away{Environment.NewLine}" +
-    $"   shortest path  {lanePath.Geometry.Coordinates.Count} lane points, {lanePath.Properties.Length:N0} km via {PassageNames(lanePath.Properties.TraversedPassages)}{Environment.NewLine}" +
-    $"   finished route {finished.Geometry.Coordinates.Count} points, {finished.Properties.Length:N0} km, {finished.Properties.DurationHours:N1} h{Environment.NewLine}" +
+    $"   shortest path  {lanePath.Geometry?.Positions.Count ?? 0} lane points, {lanePath.Properties.Length:N0} km via {PassageNames(lanePath.Properties.TraversedPassages)}{Environment.NewLine}" +
+    $"   finished route {finished.Geometry?.Positions.Count ?? 0} points, {finished.Properties.Length:N0} km, {finished.Properties.DurationHours:N1} h{Environment.NewLine}" +
     $"   result         GeoJSON Feature, {finished.ToJson().Length:N0} characters");
 
 // 10 to 12. Multi-leg movements, one leg per line. Sea legs are routed; road and air legs are straight lines.
@@ -105,7 +105,7 @@ Print("9. CNSHG Shanghai to GBLON London, step by step",
 PrintMovement("10. Movement with one sea leg", """
     Pickup GBLGW to Port GBFXT Road
     Port GBFXT to Port CNSHG Sea
-    Delivery from port CNSHG to place CNSHZ Sea
+    Delivery from port CNSHG to place CNSHZ Road
     """);
 
 PrintMovement("11. Movement with several sea legs, a light 12 t load in one 40-foot container", """

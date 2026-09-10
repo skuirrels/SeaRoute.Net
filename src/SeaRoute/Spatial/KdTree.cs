@@ -3,107 +3,98 @@ using SeaRoute.Common;
 namespace SeaRoute.Spatial;
 
 /// <summary>
-/// A 2D KD-Tree for fast nearest-neighbor spatial queries on geographical coordinates.
+/// A balanced three-dimensional KD-Tree over unit-sphere coordinates. This preserves exact
+/// great-circle nearest-neighbour ordering across the antimeridian and near the poles.
 /// Thread-safe for read queries once constructed.
 /// </summary>
 /// <typeparam name="T">Payload type associated with coordinates.</typeparam>
 public sealed class KdTree<T>
 {
     private readonly KdNode<T>? _root;
-    private readonly int _count;
 
     /// <summary>Number of nodes in the tree.</summary>
-    public int Count => _count;
+    public int Count { get; }
 
-    /// <summary>
-    /// Builds a balanced KD-Tree from the given sequence of point-value pairs.
-    /// </summary>
+    /// <summary>Builds a balanced spherical KD-Tree from point-value pairs.</summary>
     public KdTree(IEnumerable<(Coordinate Point, T Value)> items)
     {
-        var list = items.ToList();
-        _count = list.Count;
-        _root = BuildTree(list, 0, list.Count, 0);
+        ArgumentNullException.ThrowIfNull(items);
+        var nodes = items.Select(item => new KdNode<T>(item.Point, item.Value)).ToList();
+        Count = nodes.Count;
+        _root = BuildTree(nodes, 0, nodes.Count, 0);
     }
 
-    /// <summary>
-    /// Builds a balanced KD-Tree from coordinates where the payload is the coordinate itself.
-    /// </summary>
-    public static KdTree<Coordinate> FromCoordinates(IEnumerable<Coordinate> coordinates)
-    {
-        return new KdTree<Coordinate>(coordinates.Select(c => (c, c)));
-    }
+    /// <summary>Builds a tree whose payload is the coordinate itself.</summary>
+    public static KdTree<Coordinate> FromCoordinates(IEnumerable<Coordinate> coordinates) =>
+        new(coordinates.Select(c => (c, c)));
 
-    /// <summary>
-    /// Finds the nearest neighbor in the KD-tree to the specified coordinate.
-    /// Uses 2D Euclidean distance in coordinate space.
-    /// </summary>
+    /// <summary>Finds the geographically nearest neighbour to <paramref name="target"/>.</summary>
     public (Coordinate Point, T Value)? Query(Coordinate target)
     {
-        if (_root == null)
+        if (_root is null)
             return null;
 
-        KdNode<T>? bestNode = null;
-        double bestDistSq = double.PositiveInfinity;
-
-        QueryRecursive(_root, target, 0, ref bestNode, ref bestDistSq);
-
-        return bestNode != null ? (bestNode.Point, bestNode.Value) : null;
+        var vector = Haversine.ToUnitVector(target);
+        KdNode<T>? best = null;
+        double bestDistanceSquared = double.PositiveInfinity;
+        QueryRecursive(_root, vector, 0, ref best, ref bestDistanceSquared);
+        return best is null ? null : (best.Point, best.Value);
     }
 
-    private static readonly IComparer<(Coordinate Point, T Value)> LonComparer =
-        Comparer<(Coordinate Point, T Value)>.Create((a, b) => a.Point.Longitude.CompareTo(b.Point.Longitude));
-
-    private static readonly IComparer<(Coordinate Point, T Value)> LatComparer =
-        Comparer<(Coordinate Point, T Value)>.Create((a, b) => a.Point.Latitude.CompareTo(b.Point.Latitude));
-
-    private static KdNode<T>? BuildTree(List<(Coordinate Point, T Value)> points, int start, int length, int depth)
+    private static KdNode<T>? BuildTree(List<KdNode<T>> nodes, int start, int length, int depth)
     {
         if (length <= 0)
             return null;
 
-        int axis = depth % 2; // 0 = Longitude (X), 1 = Latitude (Y)
-        points.Sort(start, length, axis == 0 ? LonComparer : LatComparer);
-
+        int axis = depth % 3;
+        nodes.Sort(start, length, Comparer<KdNode<T>>.Create((a, b) => Axis(a, axis).CompareTo(Axis(b, axis))));
         int medianOffset = length / 2;
         int medianIndex = start + medianOffset;
-
-        return new KdNode<T>(points[medianIndex].Point, points[medianIndex].Value)
-        {
-            Left = BuildTree(points, start, medianOffset, depth + 1),
-            Right = BuildTree(points, medianIndex + 1, length - medianOffset - 1, depth + 1)
-        };
+        var node = nodes[medianIndex];
+        node.Left = BuildTree(nodes, start, medianOffset, depth + 1);
+        node.Right = BuildTree(nodes, medianIndex + 1, length - medianOffset - 1, depth + 1);
+        return node;
     }
 
     private static void QueryRecursive(
         KdNode<T> current,
-        Coordinate target,
+        (double X, double Y, double Z) target,
         int depth,
-        ref KdNode<T>? bestNode,
-        ref double bestDistSq)
+        ref KdNode<T>? best,
+        ref double bestDistanceSquared)
     {
-        double currentDistSq = Haversine.EuclideanDistanceSquared(target, current.Point);
-        if (currentDistSq < bestDistSq)
+        double dx = target.X - current.X;
+        double dy = target.Y - current.Y;
+        double dz = target.Z - current.Z;
+        double distanceSquared = (dx * dx) + (dy * dy) + (dz * dz);
+        if (distanceSquared < bestDistanceSquared)
         {
-            bestDistSq = currentDistSq;
-            bestNode = current;
+            bestDistanceSquared = distanceSquared;
+            best = current;
         }
 
-        int axis = depth % 2;
-        double currentVal = axis == 0 ? current.Point.Longitude : current.Point.Latitude;
-        double targetVal = axis == 0 ? target.Longitude : target.Latitude;
+        int axis = depth % 3;
+        double delta = Axis(target, axis) - Axis(current, axis);
+        KdNode<T>? near = delta < 0 ? current.Left : current.Right;
+        KdNode<T>? far = delta < 0 ? current.Right : current.Left;
 
-        KdNode<T>? nextBranch = targetVal < currentVal ? current.Left : current.Right;
-        KdNode<T>? oppositeBranch = targetVal < currentVal ? current.Right : current.Left;
-
-        if (nextBranch != null)
-        {
-            QueryRecursive(nextBranch, target, depth + 1, ref bestNode, ref bestDistSq);
-        }
-
-        double axisDiff = targetVal - currentVal;
-        if (oppositeBranch != null && (axisDiff * axisDiff) < bestDistSq)
-        {
-            QueryRecursive(oppositeBranch, target, depth + 1, ref bestNode, ref bestDistSq);
-        }
+        if (near is not null)
+            QueryRecursive(near, target, depth + 1, ref best, ref bestDistanceSquared);
+        if (far is not null && (delta * delta) < bestDistanceSquared)
+            QueryRecursive(far, target, depth + 1, ref best, ref bestDistanceSquared);
     }
+
+    private static double Axis(KdNode<T> node, int axis) => axis switch
+    {
+        0 => node.X,
+        1 => node.Y,
+        _ => node.Z
+    };
+
+    private static double Axis((double X, double Y, double Z) vector, int axis) => axis switch
+    {
+        0 => vector.X,
+        1 => vector.Y,
+        _ => vector.Z
+    };
 }

@@ -6,7 +6,7 @@ namespace SeaRoute.Graph;
 
 /// <summary>
 /// In-memory graph representing the global maritime shipping network (Marnet).
-/// Backed by a compressed sparse row adjacency layout and a 2D KD-Tree for sub-millisecond route queries.
+/// Backed by forward and reverse compressed sparse row layouts and a spherical KD-Tree.
 /// </summary>
 public sealed class MaritimeGraph
 {
@@ -18,7 +18,16 @@ public sealed class MaritimeGraph
     // Flattened adjacency built by BuildIndex(): edges for node i live in _edges[_edgeOffsets[i].._edgeOffsets[i+1]).
     private int[]? _edgeOffsets;
     private GraphEdge[]? _edges;
+    private int[]? _incomingEdgeOffsets;
+    private GraphEdge[]? _incomingEdges;
     private KdTree<int>? _kdTree;
+    private bool _isReadOnly;
+
+    /// <summary>Whether the graph has been indexed and frozen for concurrent route queries.</summary>
+    public bool IsReadOnly => _isReadOnly;
+
+    /// <summary>Scale applied to the geodesic A* heuristic so it remains admissible for custom edge weights.</summary>
+    public double HaversineHeuristicScale { get; private set; }
 
     /// <summary>Number of nodes in the graph.</summary>
     public int NodeCount => _nodeCoordinates.Count;
@@ -29,13 +38,18 @@ public sealed class MaritimeGraph
     /// <summary>
     /// Gets the coordinate of a node by its index.
     /// </summary>
-    public Coordinate GetCoordinate(int nodeId) => _nodeCoordinates[nodeId];
+    public Coordinate GetCoordinate(int nodeId)
+    {
+        EnsureNodeId(nodeId, nameof(nodeId));
+        return _nodeCoordinates[nodeId];
+    }
 
     /// <summary>
     /// Gets the outgoing edges for a node as a span over the flattened adjacency array.
     /// </summary>
     public ReadOnlySpan<GraphEdge> GetEdges(int nodeId)
     {
+        EnsureNodeId(nodeId, nameof(nodeId));
         if (_edges != null && _edgeOffsets != null)
         {
             int start = _edgeOffsets[nodeId];
@@ -43,6 +57,17 @@ public sealed class MaritimeGraph
         }
 
         return CollectionsMarshal.AsSpan(_adjacency[nodeId]);
+    }
+
+    /// <summary>Gets incoming edges. Each returned target is the predecessor node.</summary>
+    public ReadOnlySpan<GraphEdge> GetIncomingEdges(int nodeId)
+    {
+        EnsureNodeId(nodeId, nameof(nodeId));
+        if (_incomingEdges is null || _incomingEdgeOffsets is null)
+            throw new InvalidOperationException("Graph index has not been built. Call BuildIndex() first.");
+
+        int start = _incomingEdgeOffsets[nodeId];
+        return new ReadOnlySpan<GraphEdge>(_incomingEdges, start, _incomingEdgeOffsets[nodeId + 1] - start);
     }
 
     /// <summary>
@@ -67,11 +92,14 @@ public sealed class MaritimeGraph
 
     /// <summary>
     /// Adds a node with its coordinate, returning its assigned integer node ID.
-    /// Invalidates any previously built index; call <see cref="BuildIndex"/> again before querying.
+    /// Nodes can only be added before <see cref="BuildIndex"/> freezes the graph.
     /// </summary>
     public int AddNode(Coordinate coord)
     {
-        InvalidateIndex();
+        EnsureMutable();
+        coord.Validate();
+        if (_coordToId.ContainsKey(coord))
+            throw new ArgumentException($"A graph node already exists at {coord}.", nameof(coord));
         int id = _nodeCoordinates.Count;
         _nodeCoordinates.Add(coord);
         _coordToId[coord] = id;
@@ -81,11 +109,15 @@ public sealed class MaritimeGraph
 
     /// <summary>
     /// Adds a directed edge from node uId to node vId with the specified weight and optional passage.
-    /// Invalidates any previously built index; call <see cref="BuildIndex"/> again before querying.
+    /// Edges can only be added before <see cref="BuildIndex"/> freezes the graph.
     /// </summary>
     public void AddDirectedEdge(int uId, int vId, double weight, string? passage = null)
     {
-        InvalidateIndex();
+        EnsureMutable();
+        EnsureNodeId(uId, nameof(uId));
+        EnsureNodeId(vId, nameof(vId));
+        if (!double.IsFinite(weight) || weight < 0)
+            throw new ArgumentOutOfRangeException(nameof(weight), weight, "Edge weight must be finite and non-negative.");
         _adjacency[uId].Add(new GraphEdge(vId, weight, passage));
         _edgePassages[(uId, vId)] = passage;
     }
@@ -95,6 +127,8 @@ public sealed class MaritimeGraph
     /// </summary>
     public int GetOrAddNode(Coordinate coord)
     {
+        EnsureMutable();
+        coord.Validate();
         if (_coordToId.TryGetValue(coord, out int id))
             return id;
 
@@ -103,10 +137,11 @@ public sealed class MaritimeGraph
 
     /// <summary>
     /// Adds an undirected edge between coordinates u and v.
-    /// Invalidates any previously built index; call <see cref="BuildIndex"/> again before querying.
+    /// Edges can only be added before <see cref="BuildIndex"/> freezes the graph.
     /// </summary>
     public void AddEdge(Coordinate u, Coordinate v, double? weight = null, string? passage = null)
     {
+        EnsureMutable();
         int uId = GetOrAddNode(u);
         int vId = GetOrAddNode(v);
 
@@ -122,6 +157,9 @@ public sealed class MaritimeGraph
     /// </summary>
     public void BuildIndex()
     {
+        if (_isReadOnly)
+            return;
+
         int nodeCount = _nodeCoordinates.Count;
         var offsets = new int[nodeCount + 1];
         for (int i = 0; i < nodeCount; i++)
@@ -130,9 +168,30 @@ public sealed class MaritimeGraph
         }
 
         var edges = new GraphEdge[offsets[nodeCount]];
+        var incomingCounts = new int[nodeCount];
         for (int i = 0; i < nodeCount; i++)
         {
             _adjacency[i].CopyTo(edges, offsets[i]);
+            foreach (var edge in _adjacency[i])
+                incomingCounts[edge.TargetNodeId]++;
+        }
+
+        var incomingOffsets = new int[nodeCount + 1];
+        for (int i = 0; i < nodeCount; i++)
+            incomingOffsets[i + 1] = incomingOffsets[i] + incomingCounts[i];
+
+        var incomingEdges = new GraphEdge[edges.Length];
+        var incomingPositions = (int[])incomingOffsets.Clone();
+        double heuristicScale = 1.0;
+        for (int source = 0; source < nodeCount; source++)
+        {
+            foreach (var edge in _adjacency[source])
+            {
+                incomingEdges[incomingPositions[edge.TargetNodeId]++] = new GraphEdge(source, edge.Weight, edge.Passage);
+                double directDistance = Haversine.DistanceKmUnchecked(_nodeCoordinates[source], _nodeCoordinates[edge.TargetNodeId]);
+                if (directDistance > 0)
+                    heuristicScale = Math.Min(heuristicScale, edge.Weight / directDistance);
+            }
         }
 
         var items = new List<(Coordinate Point, int Value)>(nodeCount);
@@ -143,14 +202,11 @@ public sealed class MaritimeGraph
 
         _edgeOffsets = offsets;
         _edges = edges;
+        _incomingEdgeOffsets = incomingOffsets;
+        _incomingEdges = incomingEdges;
         _kdTree = new KdTree<int>(items);
-    }
-
-    private void InvalidateIndex()
-    {
-        _edgeOffsets = null;
-        _edges = null;
-        _kdTree = null;
+        HaversineHeuristicScale = Math.Clamp(heuristicScale, 0.0, 1.0);
+        _isReadOnly = true;
     }
 
     /// <summary>
@@ -177,6 +233,8 @@ public sealed class MaritimeGraph
         IReadOnlySet<string>? restrictions = null,
         string? algorithm = "dijkstra")
     {
+        if (!_isReadOnly)
+            throw new InvalidOperationException("Graph index has not been built. Call BuildIndex() first.");
         int originNodeId = FindNearestNode(origin);
         int destNodeId = FindNearestNode(destination);
 
@@ -190,6 +248,21 @@ public sealed class MaritimeGraph
             return AStar.FindPath(this, originNodeId, destNodeId, restrictions);
         }
 
+        if (!string.Equals(algorithm, "dijkstra", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException($"Unknown pathfinding algorithm '{algorithm}'. Expected 'dijkstra' or 'astar'.", nameof(algorithm));
+
         return BidirectionalDijkstra.FindPath(this, originNodeId, destNodeId, restrictions);
+    }
+
+    private void EnsureMutable()
+    {
+        if (_isReadOnly)
+            throw new InvalidOperationException("The graph is read-only after BuildIndex(). Build a new graph to change its nodes or edges.");
+    }
+
+    private void EnsureNodeId(int nodeId, string parameterName)
+    {
+        if ((uint)nodeId >= (uint)_nodeCoordinates.Count)
+            throw new ArgumentOutOfRangeException(parameterName, nodeId, $"Node ID must be between 0 and {_nodeCoordinates.Count - 1}.");
     }
 }

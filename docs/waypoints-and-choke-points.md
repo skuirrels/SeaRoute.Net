@@ -8,7 +8,7 @@ SeaRoute.Net routes one transport mode, deep-sea shipping on the Eurostat Marnet
 
 | Mode | Routed | Network | Leg geometry | Duration basis | Choke points |
 |---|---|---|---|---|---|
-| Sea | Yes | Marnet, 9,708 nodes, 31,940 directed edges | Network path | `SpeedKnots`, default 16, plus 24 h port dwell per leg end in movements | 13 tagged passages, listed in section 3 |
+| Sea | Yes | Marnet, 9,708 nodes, 31,950 directed edges | Network path | `SpeedKnots`, default 16, plus 24 h port dwell per leg end in movements | 13 tagged passages, listed in section 3 |
 | Road | No | None | Straight line, 2 points | `SpeedsKmh[Road]`, default 60 | None |
 | Rail | No | None | Straight line, 2 points | `SpeedsKmh[Rail]`, default 80 | None |
 | Air | No | None | Straight line, 2 points | `SpeedsKmh[Air]`, default 800 | None |
@@ -16,22 +16,22 @@ SeaRoute.Net routes one transport mode, deep-sea shipping on the Eurostat Marnet
 
 Two other straight-line elements exist. The leg that joins an inland origin or destination to its nearest port when `AppendOriginDestination` is set, and the road, rail and air legs of a movement, whatever their kind. Neither is checked against land.
 
-Movement legs are written one per line, `Pickup GBLGW to Port GBFXT Road`, and parsed by `MovementParser`. Location codes resolve against caller-supplied coordinates first, then the embedded port list when UN/LOCODE agrees on the name, then the embedded UN/LOCODE list where it carries coordinates, then an `ILocationResolver`. UN/LOCODE has no coordinates for about a fifth of its entries; a small supplement file in the library fills a few of those from cited sources, and the rest must be supplied by the caller. Sea legs in a movement always include their resolved endpoints (2.3), so consecutive legs join. A sea leg with no route under the restrictions raises an error naming the leg instead of contributing an empty line.
+Movement legs are written one per line, `Pickup GBLGW to Port GBFXT Road`, and parsed by `MovementParser`. The parser retains declared endpoint types; known UN/LOCODE functions are checked against those types and against sea, rail and air modes. Location codes resolve against caller-supplied coordinates first, then the embedded port list when UN/LOCODE agrees on the name, then the embedded UN/LOCODE list where it carries coordinates, then an `ILocationResolver`. The embedded list has no coordinates for about a fifth of its entries; a small supplement fills a few from cited sources, and the rest must be supplied by the caller. Consecutive legs must join, Pickup must be first and Delivery last. A sea leg with no route raises an error naming the leg.
 
 ## 2. Waypoint types
 
-A route is a GeoJSON `LineString`. Every coordinate in it is one of the waypoint types below. The type is not written into the output; it follows from position in the line and from the options used.
+A route is a GeoJSON `LineString`, or a `MultiLineString` split at the antimeridian. Every position in it is one of the waypoint types below. The waypoint type is not written into the geometry; it follows from position and options.
 
 | # | Waypoint type | Source | Count in data | When it appears | Position in the line |
 |---|---|---|---|---|---|
 | 2.1 | Network node | Marnet vertex | 9,708 | Always | Interior, and the ends unless 2.3 or 2.4 apply |
 | 2.2 | Snapped endpoint | Nearest network node to a request point | Chosen per request | Always | First and last network node |
 | 2.3 | Requested origin and destination | Caller's coordinates | 2 per request | `AppendOriginDestination = true` | Very first and very last |
-| 2.4 | Port | World ports database | 3,955 | Port-code overload, or `IncludePorts = true` | Between 2.3 and 2.2 at each end |
+| 2.4 | Port | World ports database | 3,962 records | Port-code overload, or `IncludePorts = true` | Between 2.3 and 2.2 at each end |
 | 2.5 | Preferred port in an area | Caller's `AreaFeature` polygon and `PortProps` weights | Caller-defined | `PortParameters.PortsInAreas*` | As 2.4, one route per port |
 | 2.6 | Custom port | `PortProps` with an unknown code | Caller-defined | As 2.5 | As 2.4 |
 | 2.7 | Antimeridian seam node | Marnet vertices on the 180th meridian | 39 seam edges | Trans-Pacific and Arctic routes | Interior |
-| 2.8 | Degenerate result | Engine | n/a | Same snapped node, or no path | Single point, or empty line |
+| 2.8 | Degenerate result | Engine | n/a | Same snapped node, or no path | Two-point line, or null geometry |
 
 ### 2.1 Network node
 
@@ -43,15 +43,15 @@ Node connectivity tells you what a node is for:
 |---|---|---|
 | 1 | 701 | Dead-end spur into a port approach or a fjord |
 | 2 | 3,176 | Shape point along a lane |
-| 3 | 811 | Junction where a spur leaves a lane |
-| 4 | 4,049 | Grid crossing in open ocean |
-| 5 to 17 | 971 | Hub where several lanes converge, for example off Singapore or Gibraltar |
+| 3 | 810 | Junction where a spur leaves a lane |
+| 4 | 4,048 | Grid crossing in open ocean |
+| 5 to 17 | 973 | Hub where several lanes converge, for example off Singapore or Gibraltar |
 
 Every interior coordinate of a route is a network node. The path is the sequence of nodes chosen by bidirectional Dijkstra or A*.
 
 ### 2.2 Snapped endpoint
 
-The engine does not add the caller's coordinates to the network. It finds the nearest network node to each request point with a KD-tree and searches between those two nodes. The nearest node is chosen by planar distance in degrees, so for a point well inland the snapped node can be some way from the coast.
+The engine does not add the caller's coordinates to the network. It finds the geographically nearest network node with a three-dimensional unit-sphere KD-tree and searches between the two snapped nodes. Spherical chord distance has the same nearest-neighbour ordering as great-circle distance, including across the date line and near the poles. A point well inland can still be far from any maritime lane; inspect the snap distance when that matters.
 
 Without `AppendOriginDestination`, the snapped endpoints are the first and last coordinates of the line, and the reported length is the network distance between them.
 
@@ -67,11 +67,11 @@ An entry in the embedded world ports database:
 |---|---|
 | `PortCode` | UN/LOCODE, for example `FRLEH`, `SGSIN`, `CNTSN` |
 | `Name`, `Country` | Display name and country; 196 countries are represented |
-| `IsTerminal` | True for 799 ports flagged as container or cargo terminals |
+| `IsTerminal` | True for 803 records flagged as container or cargo terminals |
 | `ToCountries` | Permitted destination countries, populated for 747 ports; used by `CountryRestricted` |
 | `Longitude`, `Latitude` | Port position |
 
-Port codes in the list follow the source dataset, not carrier convention, so check them before relying on them. The clearest case is Shanghai: carriers use `CNSHG` for the seaport and `CNSHA` for Hongqiao airport, but the list holds `CNSHG` as Sanshan, an inland port on the Yangtze, and Shanghai's seaport at Wusongkou under `CNSHA`. A movement can supply its own coordinate for any code to override the list.
+Port codes in the list follow the source dataset, not carrier convention, so check them before relying on them. The clearest case is Shanghai: the port and UN/LOCODE records disagree for `CNSHG`, so movement resolution uses UN/LOCODE's Shanghai Pt coordinate. The source also contains 38 duplicate-code groups. `GetByCode` throws for an ambiguous code; inspect `GetByCodeCandidates` or use `GetByCode(code, near)` rather than relying on source order. A movement can supply its own coordinate for any code to override the list.
 
 A port becomes a waypoint in two ways. Routing by port code uses the port position as the request point directly. Routing with `IncludePorts = true` replaces each request point with the nearest port that passes the filters in `PortParameters`: terminals only, country of loading, country of discharge, and strict or lenient matching. The chosen ports are reported in `port_origin` and `port_dest`.
 
@@ -85,7 +85,7 @@ When a point is outside every polygon and `StrictArea` is false, the nearest pol
 
 ### 2.6 Custom port
 
-A `PortProps` entry whose code is not in the database becomes a synthetic port. Its position comes from `x` and `y` in the props dictionary. If those are absent it is placed at the request point itself, which means the route starts from the nearest network node to the request point with no port leg.
+A `PortProps` entry whose code is not in the database becomes a synthetic port. Its position comes from finite, valid `x` and `y` values in the props dictionary. Missing or invalid coordinates throw an `ArgumentException`; the engine never silently places a custom port at the request point.
 
 ### 2.7 Antimeridian seam node
 
@@ -97,11 +97,11 @@ Marnet is a flat map with a seam at the 180th meridian. The dataset stitches it 
 | `segment` | 13 | 16,680 km | Meridian lane running along +180° from 70° S to 80° N |
 | `segment2` | 14 | 17,792 km | The same lane along −180° |
 
-Some Arctic nodes are also duplicated east of the seam, out to 190.85° E. After routing, the engine unwraps longitudes so consecutive points never differ by more than 180°. A trans-Pacific route may therefore contain longitudes beyond ±180°, which is what map libraries need to draw one continuous line.
+Some source nodes are duplicated east of the seam, out to 190.85° E. Route length is measured on the continuous internal path, then output is normalized to RFC 7946. A crossing is split exactly at ±180° and emitted as a `MultiLineString`; all output longitudes stay within ±180°.
 
 ### 2.8 Degenerate result
 
-If both request points snap to the same node, the line is drawn straight between the two request points, so it always has two coordinates and a real length. If passage restrictions leave no path, the line is empty and length and duration are zero, and no exception is thrown for a single route.
+If both request points snap to the same node, the line is drawn straight between the two request points, so it has two coordinates and a real length. If passage restrictions leave no path, geometry is null and length and duration are zero; movement sea legs instead throw because silently omitting a leg would corrupt the totals.
 
 ## 3. Choke points
 
@@ -183,7 +183,7 @@ var route = SeaRouter.Calculate(
 
 // route.Properties.TraversedPassages  -> tags of choke points used
 // route.Properties.PortOrigin / PortDest -> port waypoints chosen
-// route.Geometry.Coordinates           -> requested point, port, snapped node, network nodes, ...
+// route.Geometry?.Positions            -> requested point, port, snapped node, network nodes, ...
 ```
 
 All identifiers, as constants and as strings:
@@ -204,4 +204,4 @@ All identifiers, as constants and as strings:
 | `Passage.Suez` | `suez` |
 | `Passage.Sunda` | `sunda` |
 
-Strings are matched case-insensitively. Unknown strings in `Restrictions` are ignored, and internal tags (`segment`, `segment2`, `pacific_ocean`) are never reported and cannot be restricted through the public constants.
+Strings are matched case-insensitively. Unknown strings in `Restrictions` throw an `ArgumentException` instead of being silently ignored. Internal seam tags (`segment`, `segment2`, `pacific_ocean`) are never reported and cannot be supplied as public restrictions.

@@ -13,6 +13,8 @@ public static class Haversine
     /// </summary>
     public static double Distance(Coordinate c1, Coordinate c2, DistanceUnit unit = DistanceUnit.Km)
     {
+        c1.Validate();
+        c2.Validate();
         double dLat = ToRadians(c2.Latitude - c1.Latitude);
         double dLon = ToRadians(c2.Longitude - c1.Longitude);
 
@@ -35,6 +37,13 @@ public static class Haversine
     /// </summary>
     public static double DistanceKm(Coordinate c1, Coordinate c2)
     {
+        c1.Validate();
+        c2.Validate();
+        return DistanceKmUnchecked(c1, c2);
+    }
+
+    internal static double DistanceKmUnchecked(Coordinate c1, Coordinate c2)
+    {
         double lat1 = ToRadians(c1.Latitude);
         double lat2 = ToRadians(c2.Latitude);
         double dLat = lat2 - lat1;
@@ -53,7 +62,12 @@ public static class Haversine
     /// </summary>
     public static double CalculatePathLength(IReadOnlyList<Coordinate> coordinates, DistanceUnit unit = DistanceUnit.Km)
     {
-        if (coordinates == null || coordinates.Count < 2)
+        ArgumentNullException.ThrowIfNull(coordinates);
+        if (!Enum.IsDefined(unit))
+            throw new ArgumentOutOfRangeException(nameof(unit), unit, "Unknown distance unit.");
+        foreach (var coordinate in coordinates)
+            coordinate.Validate();
+        if (coordinates.Count < 2)
             return 0.0;
 
         double total = 0.0;
@@ -69,24 +83,39 @@ public static class Haversine
     /// </summary>
     public static double CalculateDurationHours(double speedKnots, double length, DistanceUnit unit)
     {
-        if (speedKnots <= 0 || length <= 0)
+        if (!double.IsFinite(speedKnots) || speedKnots <= 0)
+            throw new ArgumentOutOfRangeException(nameof(speedKnots), speedKnots, "Speed must be a finite positive value.");
+        if (!double.IsFinite(length) || length < 0)
+            throw new ArgumentOutOfRangeException(nameof(length), length, "Length must be a finite non-negative value.");
+        if (!Enum.IsDefined(unit))
+            throw new ArgumentOutOfRangeException(nameof(unit), unit, "Unknown distance unit.");
+        if (length == 0)
             return 0.0;
 
         double speedInUnit = speedKnots * unit.GetSpeedCoefficient();
-        if (speedInUnit <= 0)
-            return 0.0;
-
         return length / speedInUnit;
     }
 
     /// <summary>
-    /// Calculates 2D Euclidean distance in coordinate space (used by KD-Tree nearest neighbor).
+    /// Calculates squared chord distance on a unit sphere. Its ordering is identical to great-circle distance.
     /// </summary>
-    public static double EuclideanDistanceSquared(Coordinate c1, Coordinate c2)
+    public static double UnitSphereDistanceSquared(Coordinate c1, Coordinate c2)
     {
-        double dx = c1.Longitude - c2.Longitude;
-        double dy = c1.Latitude - c2.Latitude;
-        return (dx * dx) + (dy * dy);
+        var a = ToUnitVector(c1);
+        var b = ToUnitVector(c2);
+        double dx = a.X - b.X;
+        double dy = a.Y - b.Y;
+        double dz = a.Z - b.Z;
+        return (dx * dx) + (dy * dy) + (dz * dz);
+    }
+
+    internal static (double X, double Y, double Z) ToUnitVector(Coordinate coordinate)
+    {
+        coordinate.Validate();
+        double lat = ToRadians(coordinate.Latitude);
+        double lon = ToRadians(coordinate.Longitude);
+        double cosLat = Math.Cos(lat);
+        return (cosLat * Math.Cos(lon), cosLat * Math.Sin(lon), Math.Sin(lat));
     }
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]

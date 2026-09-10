@@ -29,6 +29,25 @@ public enum LegKind
     Delivery
 }
 
+/// <summary>Semantic type declared for a movement endpoint.</summary>
+public enum WaypointKind
+{
+    /// <summary>No endpoint type was declared.</summary>
+    Unspecified,
+    /// <summary>A general place with no required transport function.</summary>
+    Place,
+    /// <summary>A maritime port.</summary>
+    Port,
+    /// <summary>An airport.</summary>
+    Airport,
+    /// <summary>A rail station or terminal.</summary>
+    Station,
+    /// <summary>A transport terminal of any recorded terminal type.</summary>
+    Terminal,
+    /// <summary>A depot or multimodal facility.</summary>
+    Depot
+}
+
 /// <summary>
 /// The single source of truth for how modes and kinds are written in leg lines and in GeoJSON.
 /// </summary>

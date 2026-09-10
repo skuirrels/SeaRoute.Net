@@ -22,7 +22,7 @@ public class KdTreeTests
         var tree = new KdTree<string>([(pt, "Item1")]);
         tree.Count.Should().Be(1);
 
-        var query = tree.Query(new Coordinate(100.0, 200.0));
+        var query = tree.Query(new Coordinate(100.0, 20.0));
         query.Should().NotBeNull();
         query!.Value.Value.Should().Be("Item1");
         query.Value.Point.Should().Be(pt);
@@ -80,7 +80,7 @@ public class KdTreeTests
             double bestDistSq = double.PositiveInfinity;
             for (int i = 0; i < items.Count; i++)
             {
-                double dSq = Haversine.EuclideanDistanceSquared(qCoord, items[i].Point);
+                double dSq = Haversine.UnitSphereDistanceSquared(qCoord, items[i].Point);
                 if (dSq < bestDistSq)
                 {
                     bestDistSq = dSq;
@@ -92,8 +92,28 @@ public class KdTreeTests
             treeResult.Should().NotBeNull();
 
             // The distance to tree result point should be identical to best distance
-            double treeDistSq = Haversine.EuclideanDistanceSquared(qCoord, treeResult!.Value.Point);
+            double treeDistSq = Haversine.UnitSphereDistanceSquared(qCoord, treeResult!.Value.Point);
             treeDistSq.Should().BeApproximately(bestDistSq, 1e-9);
         }
+    }
+
+    [Fact]
+    public void KdTree_Antimeridian_SelectsAcrossDateLineNeighbor()
+    {
+        var acrossDateLine = new Coordinate(179.8, 0);
+        var geographicallyFarther = new Coordinate(-160, 0);
+        var tree = new KdTree<string>([(acrossDateLine, "across"), (geographicallyFarther, "farther")]);
+
+        tree.Query(new Coordinate(-179.9, 0))!.Value.Value.Should().Be("across");
+    }
+
+    [Fact]
+    public void KdTree_NearPole_MatchesSphericalNearestNeighbor()
+    {
+        var closeAcrossLongitude = new Coordinate(90, 86);
+        var fartherDownMeridian = new Coordinate(0, 70);
+        var tree = new KdTree<string>([(closeAcrossLongitude, "polar"), (fartherDownMeridian, "southern")]);
+
+        tree.Query(new Coordinate(0, 85))!.Value.Value.Should().Be("polar");
     }
 }

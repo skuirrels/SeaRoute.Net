@@ -35,7 +35,7 @@ public static class AStar
 
         gScore[source] = 0.0;
         stamp[source] = gen;
-        double h0 = Haversine.DistanceKm(graph.GetCoordinate(source), targetCoord);
+        double h0 = graph.HaversineHeuristicScale * Haversine.DistanceKmUnchecked(graph.GetCoordinate(source), targetCoord);
         openSet.Enqueue(source, h0);
 
         while (openSet.Count > 0)
@@ -85,7 +85,7 @@ public static class AStar
                     gScore[neighbor] = tentativeG;
                     parent[neighbor] = current;
                     stamp[neighbor] = gen;
-                    double h = Haversine.DistanceKm(graph.GetCoordinate(neighbor), targetCoord);
+                    double h = graph.HaversineHeuristicScale * Haversine.DistanceKmUnchecked(graph.GetCoordinate(neighbor), targetCoord);
                     openSet.Enqueue(neighbor, tentativeG + h);
                 }
             }

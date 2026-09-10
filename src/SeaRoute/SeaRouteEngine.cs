@@ -52,6 +52,8 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(ports);
+        if (!graph.IsReadOnly)
+            throw new ArgumentException("The custom graph must be finalized with BuildIndex() before it is used by an engine.", nameof(graph));
         _lazyGraph = new Lazy<MaritimeGraph>(() => graph);
         _lazyPorts = new Lazy<PortDatabase>(() => ports);
     }
@@ -63,8 +65,8 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
     {
         ArgumentNullException.ThrowIfNull(graphFactory);
         ArgumentNullException.ThrowIfNull(portsFactory);
-        _lazyGraph = new Lazy<MaritimeGraph>(graphFactory, LazyThreadSafetyMode.ExecutionAndPublication);
-        _lazyPorts = new Lazy<PortDatabase>(portsFactory, LazyThreadSafetyMode.ExecutionAndPublication);
+        _lazyGraph = new Lazy<MaritimeGraph>(() => ValidateGraph(graphFactory()), LazyThreadSafetyMode.ExecutionAndPublication);
+        _lazyPorts = new Lazy<PortDatabase>(() => portsFactory() ?? throw new InvalidOperationException("The port factory returned null."), LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <inheritdoc />
@@ -100,7 +102,8 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
         origin.Validate();
         destination.Validate();
 
-        options ??= new SeaRouteOptions();
+        options = (options ?? new SeaRouteOptions()).Clone();
+        options.Validate();
         var units = options.Units;
         double speedKnots = options.SpeedKnots;
         bool appendOrigDest = options.AppendOriginDestination;
@@ -175,7 +178,7 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
 
             var feature = new GeoJsonFeature
             {
-                Geometry = GeoJsonLineString.FromCoordinates(normalizedCoords),
+                Geometry = GeoJsonGeometry.FromCoordinates(normalizedCoords),
                 Properties = new SeaRouteProperties
                 {
                     Length = totalLength,
@@ -197,10 +200,7 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
     public MovementResult CalculateMovement(MovementRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (request.Legs.Count == 0)
-            throw new ArgumentException("A movement needs at least one leg.", nameof(request));
-        if (request.SpeedsKmh.ContainsKey(TransportMode.Sea))
-            throw new ArgumentException("Sea speed is taken from SeaOptions.SpeedKnots; remove the Sea entry from SpeedsKmh.", nameof(request));
+        ValidateMovement(request);
 
         // Movement legs always include their resolved endpoints so consecutive legs join end to end.
         var seaOptions = (request.SeaOptions ?? new SeaRouteOptions()).Clone();
@@ -216,6 +216,19 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
             int sequence = i + 1;
             var from = ResolveLocation(leg.From, request, resolvedByCode);
             var to = ResolveLocation(leg.To, request, resolvedByCode);
+            ValidateWaypoint(sequence, "from", leg.FromKind, leg.Mode, from);
+            ValidateWaypoint(sequence, "to", leg.ToKind, leg.Mode, to);
+
+            if (i > 0)
+            {
+                var prior = legResults[^1].To;
+                if (Haversine.DistanceKm(prior.Coordinate, from.Coordinate) > 0.001)
+                {
+                    throw new ArgumentException(
+                        $"Leg {sequence} starts at {from.Label}, but leg {sequence - 1} ends at {prior.Label}. " +
+                        "Movement legs must form one continuous chain.", nameof(request));
+                }
+            }
 
             var feature = leg.Mode == TransportMode.Sea
                 ? CalculateSeaLeg(sequence, leg, from, to, seaOptions)
@@ -275,7 +288,7 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
     {
         var feature = CalculateRoute(from.Coordinate, to.Coordinate, options);
 
-        if (feature.Geometry.Coordinates.Count < 2)
+        if (feature.Geometry is null || feature.Geometry.Positions.Count < 2)
         {
             throw new InvalidOperationException(
                 $"Leg {sequence} ({leg}) has no sea route between {from.Label} and {to.Label} under the current passage restrictions.");
@@ -304,7 +317,7 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
 
         return new GeoJsonFeature
         {
-            Geometry = GeoJsonLineString.FromCoordinates(coords),
+            Geometry = GeoJsonGeometry.FromCoordinates(coords),
             Properties = new SeaRouteProperties
             {
                 Length = length,
@@ -343,8 +356,10 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
     {
         if (location.Coordinate.HasValue)
         {
-            Port? knownPort = location.Code != null ? Ports.GetByCode(location.Code) : null;
-            return new ResolvedLocation(location.Code, location.Name ?? knownPort?.Name, location.Coordinate.Value, null, "coordinates");
+            Port? knownPort = location.Code != null ? Ports.GetByCode(location.Code, location.Coordinate.Value) : null;
+            UnLocode? knownLocation = location.Code != null ? UnLocodes.GetByCode(location.Code) : null;
+            var functions = knownLocation?.Functions ?? (knownPort is null ? null : LocationFunctions.SeaPort);
+            return new ResolvedLocation(location.Code, location.Name ?? knownLocation?.Name ?? knownPort?.Name, location.Coordinate.Value, null, "coordinates", functions);
         }
 
         string code = location.Code!;
@@ -352,7 +367,12 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
         // A caller-supplied coordinate wins outright and no dataset record is attached, because the
         // stored position may differ from the override.
         if (request.Coordinates.TryGetValue(code, out var overridden))
-            return new ResolvedLocation(code, null, overridden, null, "coordinates");
+        {
+            UnLocode? knownLocation = UnLocodes.GetByCode(code);
+            Port? knownPort = Ports.GetByCode(code, overridden);
+            var functions = knownLocation?.Functions ?? (knownPort is null ? null : LocationFunctions.SeaPort);
+            return new ResolvedLocation(code, knownLocation?.Name ?? knownPort?.Name, overridden, null, "coordinates", functions);
+        }
 
         return ResolveCode(code, request.Resolver);
     }
@@ -366,19 +386,21 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
 
     private ResolvedLocation ResolveCode(string code, ILocationResolver? resolver)
     {
-        Port? port = Ports.GetByCode(code);
         UnLocode? unLocode = UnLocodes.GetByCode(code);
+        Port? port = unLocode?.Coordinate is { } knownPosition
+            ? Ports.GetByCode(code, knownPosition)
+            : Ports.GetByCode(code);
 
         // The port list has positions tuned to the lane network, so it wins when UN/LOCODE agrees on the name.
         // When the names disagree (the port list's CNSHG is Sanshan, UN/LOCODE's is Shanghai Pt) UN/LOCODE wins.
         if (port != null && (unLocode == null || NamesAgree(port.Name, unLocode.Name)))
-            return new ResolvedLocation(code, port.Name, port.Coordinate, port, "ports");
+            return new ResolvedLocation(code, port.Name, port.Coordinate, port, "ports", unLocode?.Functions ?? LocationFunctions.SeaPort);
 
         if (unLocode?.Coordinate is { } position)
-            return new ResolvedLocation(code, unLocode.Name, position, null, "unlocode");
+            return new ResolvedLocation(code, unLocode.Name, position, null, "unlocode", unLocode.Functions);
 
         if (port != null)
-            return new ResolvedLocation(code, port.Name, port.Coordinate, port, "ports");
+            return new ResolvedLocation(code, port.Name, port.Coordinate, port, "ports", unLocode?.Functions ?? LocationFunctions.SeaPort);
 
         if (resolver != null && resolver.TryResolve(code, out var fromResolver, out var name))
             return new ResolvedLocation(code, name, fromResolver, null, "resolver");
@@ -422,5 +444,109 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
         if ((functions & LocationFunctions.Multimodal) != 0) parts.Add("multimodal");
         if (parts.Count == 0) parts.Add(functions.ToString().ToLowerInvariant());
         return string.Join(", ", parts);
+    }
+
+    private static MaritimeGraph ValidateGraph(MaritimeGraph? graph)
+    {
+        if (graph is null)
+            throw new InvalidOperationException("The graph factory returned null.");
+        if (!graph.IsReadOnly)
+            throw new InvalidOperationException("The graph factory must return a graph finalized with BuildIndex().");
+        return graph;
+    }
+
+    private static void ValidateMovement(MovementRequest request)
+    {
+        if (request.Legs is null || request.Legs.Count == 0)
+            throw new ArgumentException("A movement needs at least one leg.", nameof(request));
+        if (request.Emissions is null)
+            throw new ArgumentException("Movement emissions cannot be null.", nameof(request));
+        request.Emissions.Validate();
+        ValidatePositiveOptional(request.CargoTonnes, nameof(request.CargoTonnes));
+        ValidatePositiveOptional(request.CargoTeu, nameof(request.CargoTeu));
+        if (!double.IsFinite(request.PortDwellHours) || request.PortDwellHours < 0)
+            throw new ArgumentOutOfRangeException(nameof(request.PortDwellHours), request.PortDwellHours, "Port dwell must be finite and non-negative.");
+        if (request.SpeedsKmh.ContainsKey(TransportMode.Sea))
+            throw new ArgumentException("Sea speed is taken from SeaOptions.SpeedKnots; remove the Sea entry from SpeedsKmh.", nameof(request));
+
+        foreach (var (mode, speed) in request.SpeedsKmh)
+        {
+            if (!Enum.IsDefined(mode) || mode == TransportMode.Sea)
+                throw new ArgumentException($"SpeedsKmh contains unsupported mode '{mode}'.", nameof(request));
+            if (!double.IsFinite(speed) || speed <= 0)
+                throw new ArgumentOutOfRangeException(nameof(request), speed, $"Speed for {mode} must be finite and positive.");
+        }
+
+        (request.SeaOptions ?? new SeaRouteOptions()).Validate();
+        for (int i = 0; i < request.Legs.Count; i++)
+        {
+            var leg = request.Legs[i] ?? throw new ArgumentException($"Movement leg {i + 1} is null.", nameof(request));
+            if (!Enum.IsDefined(leg.Mode))
+                throw new ArgumentException($"Movement leg {i + 1} has an unknown transport mode.", nameof(request));
+            if (!Enum.IsDefined(leg.Kind) || !Enum.IsDefined(leg.FromKind) || !Enum.IsDefined(leg.ToKind))
+                throw new ArgumentException($"Movement leg {i + 1} has an unknown leg or waypoint kind.", nameof(request));
+            if (request.Legs.Count > 1 && leg.Kind == LegKind.Pickup && i != 0)
+                throw new ArgumentException($"Pickup leg {i + 1} must be the first leg.", nameof(request));
+            if (request.Legs.Count > 1 && leg.Kind == LegKind.Delivery && i != request.Legs.Count - 1)
+                throw new ArgumentException($"Delivery leg {i + 1} must be the last leg.", nameof(request));
+        }
+
+        foreach (var (code, coordinate) in request.Coordinates)
+        {
+            if (string.IsNullOrWhiteSpace(code))
+                throw new ArgumentException("Movement coordinate keys cannot be blank.", nameof(request));
+            coordinate.Validate();
+        }
+    }
+
+    private static void ValidatePositiveOptional(double? value, string name)
+    {
+        if (value.HasValue && (!double.IsFinite(value.Value) || value.Value <= 0))
+            throw new ArgumentOutOfRangeException(name, value, "Cargo amount must be finite and positive when supplied.");
+    }
+
+    private static void ValidateWaypoint(
+        int sequence,
+        string endpoint,
+        WaypointKind waypointKind,
+        TransportMode mode,
+        ResolvedLocation location)
+    {
+        if (!location.Functions.HasValue)
+            return;
+
+        LocationFunctions functions = location.Functions.Value;
+        LocationFunctions requiredByKind = waypointKind switch
+        {
+            WaypointKind.Unspecified or WaypointKind.Place => LocationFunctions.None,
+            WaypointKind.Port => LocationFunctions.SeaPort,
+            WaypointKind.Airport => LocationFunctions.Airport,
+            WaypointKind.Station => LocationFunctions.RailTerminal,
+            WaypointKind.Terminal => LocationFunctions.SeaPort | LocationFunctions.RailTerminal | LocationFunctions.RoadTerminal | LocationFunctions.Multimodal,
+            WaypointKind.Depot => LocationFunctions.RoadTerminal | LocationFunctions.RailTerminal | LocationFunctions.Multimodal,
+            _ => throw new ArgumentOutOfRangeException(nameof(waypointKind), waypointKind, "Unknown waypoint kind.")
+        };
+
+        if (requiredByKind != LocationFunctions.None && (functions & requiredByKind) == 0)
+        {
+            throw new ArgumentException(
+                $"Leg {sequence} {endpoint} location {location.Label} is declared as {waypointKind}, " +
+                $"but UN/LOCODE records {DescribeFunctions(functions)}.");
+        }
+
+        LocationFunctions requiredByMode = mode switch
+        {
+            TransportMode.Sea => LocationFunctions.SeaPort,
+            TransportMode.Air => LocationFunctions.Airport,
+            TransportMode.Rail => LocationFunctions.RailTerminal,
+            TransportMode.Road => LocationFunctions.None,
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown transport mode.")
+        };
+        if (requiredByMode != LocationFunctions.None && (functions & requiredByMode) == 0)
+        {
+            throw new ArgumentException(
+                $"Leg {sequence} uses {mode}, but its {endpoint} location {location.Label} is recorded as " +
+                $"{DescribeFunctions(functions)} rather than a compatible {mode.ToString().ToLowerInvariant()} terminal.");
+        }
     }
 }

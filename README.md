@@ -6,7 +6,7 @@
 
 Shortest sea route between any two points on Earth, as a single self-contained .NET library.
 
-Give it two coordinates or two UN/LOCODE port codes and it returns an RFC 7946 GeoJSON `LineString` with the distance, the voyage duration, the ports used and the canals and straits passed through. The Eurostat Marnet shipping network and a world ports database are compressed and embedded in the assembly, so there is nothing to download, configure or host.
+Give it two coordinates or two UN/LOCODE port codes and it returns RFC 7946 GeoJSON with the distance, voyage duration, ports used and canals and straits passed through. Ordinary routes are `LineString`; antimeridian crossings are split into `MultiLineString`. The maritime network and world ports database are compressed and embedded in the assembly, so there is nothing to download, configure or host.
 
 ```csharp
 using SeaRoute;
@@ -45,17 +45,17 @@ Console.WriteLine($"{route.Properties.Length:N0} {route.Properties.Units}, {rout
 Every request goes through the same six steps, in order. The datasets are decompressed and indexed once on first use, then shared read-only by every thread.
 
 <p align="center">
-  <img src="docs/diagrams/routing-pipeline.png" alt="SeaRoute.Net routing pipeline in six numbered steps: take the request, optionally resolve ports, snap each end to the nearest shipping-lane point, find the shortest path along the lanes avoiding closed passages, add the real endpoints and measure length and time, return a GeoJSON feature. A strip below follows Shanghai (CNSHG) to London (GBLON) through each step." width="100%">
+  <img src="docs/diagrams/routing-pipeline.svg" alt="SeaRoute.Net routing pipeline in six numbered steps: take the request, optionally resolve ports, snap each end to the nearest shipping-lane point, find the shortest path along the lanes avoiding closed passages, add the real endpoints and measure length and time, return a GeoJSON feature. A strip below follows Shanghai (CNSHG) to London (GBLON) through each step." width="100%">
 </p>
 
 Source: [docs/diagrams/routing-pipeline.svg](docs/diagrams/routing-pipeline.svg) (vector) and [routing-pipeline.html](docs/diagrams/routing-pipeline.html).
 
 1. **Take the request.** An origin and a destination, as coordinates or UN/LOCODE port codes, plus options such as units, vessel speed and closed passages.
-2. **Resolve ports** only if `IncludePorts` is set. Each end is swapped for its nearest port from the embedded list of 3,955, optionally limited to container terminals or a country.
-3. **Snap to the lane network.** Each end is matched to the nearest point on Marnet, Eurostat's map of shipping lanes, using a KD-tree. Shanghai's port position is 18 km from its lane point, London's 23 km.
+2. **Resolve ports** only if `IncludePorts` is set. Each end is swapped for its nearest port from the embedded list of 3,962 records, optionally limited to container terminals or a country.
+3. **Snap to the lane network.** Each end is matched to the geographically nearest point on Marnet using a spherical KD-tree, including across the date line and near the poles. Shanghai's port position is 18 km from its lane point, London's 23 km.
 4. **Find the shortest path** along the lanes with bidirectional Dijkstra, or A* on request. Lane links through a closed canal or strait are skipped; the Northwest Passage is closed by default. Shanghai to London gives 154 lane points over 19,397 km, through Malacca, Bab-el-Mandeb, Suez and Gibraltar.
-5. **Finish the route.** With `AppendOriginDestination` the real endpoints are added, longitudes are unwrapped across the antimeridian, and length and duration are measured: 156 points, 19,438 km, 656 hours at 16 knots.
-6. **Return a GeoJSON Feature**: a LineString for the map plus distance, units, duration, the ports used and the passages traversed.
+5. **Finish the route.** With `AppendOriginDestination` the real endpoints are added, and length and duration are measured: 156 points, 19,438 km, 656 hours at 16 knots.
+6. **Return a GeoJSON Feature**: a LineString, an antimeridian-split MultiLineString, or null geometry when no path exists, plus distance, units, duration, ports and passages.
 
 ### Terms
 
@@ -73,8 +73,8 @@ Implementation notes:
 
 - **Graph storage.** Nodes and edges are held in a compressed sparse row layout; edge weights are great-circle kilometres and edges through canals and straits carry a passage tag.
 - **Search.** Bidirectional Dijkstra by default, A* on request. Both use per-thread, node-indexed scratch arrays with generation stamps, so a query allocates only its result.
-- **No route.** A single route with no surviving path returns empty geometry and zero length. A movement leg with no path throws, so totals are never silently short.
-- **Antimeridian.** Trans-Pacific routes are emitted with continuous longitudes, so a map library draws one line instead of a wrap-around artefact.
+- **No route.** A single route with no surviving path returns RFC 7946 `null` geometry and zero length. A movement leg with no path throws, so totals are never silently short.
+- **Antimeridian.** Trans-Pacific routes are split at ±180° into a `MultiLineString`, keeping every emitted longitude in the RFC 7946 range.
 - **Areas.** Polygons can name several preferred ports with share weights, in which case one route per port is returned.
 
 ## What you get back
@@ -82,7 +82,7 @@ Implementation notes:
 `CalculateRoute` returns a `GeoJsonFeature`. `ToJson()` serialises it to standard GeoJSON that Leaflet, Mapbox GL, OpenLayers, deck.gl, QGIS and PostGIS all consume directly.
 
 <p align="center">
-  <img src="docs/diagrams/output-model.png" alt="SeaRoute.Net output model: a GeoJsonFeature holds a GeoJsonLineString geometry and SeaRouteProperties with length, units, duration, traversed passages, optional origin and destination Port entities and, for movement legs, leg, mode, kind, from, to, port and transit hours and CO2e; a movement is a GeoJsonFeatureCollection of leg features with MovementProperties totals" width="100%">
+  <img src="docs/diagrams/output-model.svg" alt="SeaRoute.Net output model: a GeoJsonFeature holds nullable GeoJsonGeometry represented by LineString or MultiLineString and SeaRouteProperties; a movement is a GeoJsonFeatureCollection of leg features with MovementProperties totals" width="100%">
 </p>
 
 Source: [docs/diagrams/output-model.svg](docs/diagrams/output-model.svg) (vector) and [output-model.html](docs/diagrams/output-model.html).
@@ -115,7 +115,7 @@ Example output for Jebel Ali (AEJEA) to St John's, Antigua (AGSJO) with Suez clo
 
 ## Installation
 
-The current version is 1.2.0. It is not yet on nuget.org, so either reference the project directly or build the package locally (see [Building, testing and trying it out](#building-testing-and-trying-it-out)) and add it from that folder:
+The current version is 2.0.0. It is not yet on nuget.org, so either reference the project directly or build the package locally (see [Building, testing and trying it out](#building-testing-and-trying-it-out)) and add it from that folder:
 
 ```bash
 dotnet add package SeaRoute.Net --source ./artifacts
@@ -123,7 +123,7 @@ dotnet add package SeaRoute.Net --source ./artifacts
 
 Targets `net8.0` and `net10.0`. The package has no dependencies beyond the base class library and `System.Text.Json`.
 
-Breaking changes since 1.0.0: the static facade is now `SeaRouter` (was `SeaRoute`), and `ISeaRouteEngine` gained `CalculateMovement`, with a default implementation that throws `NotSupportedException` so existing implementers keep compiling.
+Breaking changes in 2.0.0: `GeoJsonFeature.Geometry` is now nullable `GeoJsonGeometry`; antimeridian routes use `GeoJsonMultiLineString`, and no-route features use null geometry. `Geometry.Coordinates` remains a flattened convenience view; use `Geometry.Positions` for explicit intent or cast a multi-line geometry to access its segments. Indexed custom graphs are immutable, and invalid algorithms, restrictions and physical values now throw instead of being ignored or producing invalid output.
 
 ## Usage
 
@@ -210,7 +210,7 @@ var routes = SeaRouteEngine.Default.CalculateRoutes(SeaRouter.Locate("BEBRU").Co
 
 ### Multi-leg movements
 
-A movement is a list of legs, one per line, in the form `[Pickup|Delivery] [port|place|airport|station|terminal|depot] CODE to [...] CODE MODE`, where MODE is Sea, Road, Rail or Air. Sea legs are routed on the lane network. Road, rail and air legs are straight great-circle lines between their two waypoints, never touching lane points or choke points, with a configurable speed per mode: 60, 80 and 800 km/h by default.
+A movement is a list of legs, one per line, in the form `[Pickup|Delivery] [port|place|airport|station|terminal|depot] CODE to [...] CODE MODE`, where MODE is Sea, Road, Rail or Air. Declared waypoint types and sea, rail and air modes are checked against known UN/LOCODE functions; caller-only coordinates remain unclassified. Pickup and delivery ordering and continuity between consecutive legs are also validated. Sea legs are routed on the lane network. Road, rail and air legs are straight great-circle lines between their two waypoints, never touching lane points or choke points, with a configurable speed per mode: 60, 80 and 800 km/h by default.
 
 <p align="center">
   <img src="docs/diagrams/movement-flow.png" alt="SeaRoute.Net movement flow: leg lines are parsed, each leg's locations resolved, sea legs routed on Marnet and road, rail or air legs measured as straight great-circle lines with no lane points or choke points, producing one feature per leg and a FeatureCollection with totals; worked examples show a UK to Melbourne movement with its transit time split into travelling and port hours, and a movement with an air leg from Heathrow to Melbourne" width="70%">
@@ -249,7 +249,7 @@ Codes resolve in this order:
 4. The port list anyway, for codes UN/LOCODE lacks coordinates for.
 5. An `ILocationResolver`, if one is set.
 
-Each resolved location reports its `Source`. UN/LOCODE publishes no coordinates for about a fifth of its entries. A small supplement file, [unlocode-supplement.json](src/SeaRoute/Data/unlocode-supplement.json), fills a few of those from cited sources and records the source on the entry; it never overrides UNECE. Codes that neither list can place still need a caller coordinate, and the error for one names the place and its functions. An unknown code throws an `ArgumentException` naming the code rather than guessing.
+Each resolved location reports its `Source`. The embedded UN/LOCODE data has no coordinates for about a fifth of its entries. A small supplement file, [unlocode-supplement.json](src/SeaRoute/Data/unlocode-supplement.json), fills a few of those from cited sources and records the source on the entry; it never overrides UNECE. Codes that neither list can place still need a caller coordinate, and the error for one names the place and its functions. An unknown code throws an `ArgumentException` naming the code rather than guessing. Some port codes occur more than once in the upstream list: code-only lookup throws when ambiguous, `GetByCodeCandidates` returns every record, and `GetByCode(code, near)` disambiguates geographically.
 
 ### Time
 
@@ -301,12 +301,12 @@ Everything here is deliberate and documented, but each is a simplification you s
 
 - **Port list versus UN/LOCODE tie-break.** When both lists know a code, the port list position is used only if the two names match or one is a prefix of the other after stripping accents and punctuation. If they disagree, UN/LOCODE's position is used and no port record is attached. Check `Source` on the resolved location when it matters.
 - **Supplemented coordinates.** Four codes have coordinates researched by hand rather than published by UNECE; the supplement file names each source.
-- **Port list provenance.** The 3,955-port list ships without a documented source. It disagrees with UN/LOCODE in places, for example `CNSHG` and `CNTSN`.
+- **Duplicate port codes.** The tagged upstream list contains 38 codes with multiple records. Code-only lookup never silently chooses one; provide a nearby coordinate or inspect the candidates.
+- **UN/LOCODE edition.** The embedded import did not preserve its UNECE publication edition. Its hash and record counts are documented, but it is not claimed to be the latest release.
 - **Single routes with several area matches** return the first feature from `CalculateRoute`; use `CalculateRoutes` to see them all.
-- **Single routes with no path** return empty geometry and zero length rather than throwing; movement legs throw.
+- **Single routes with no path** return null geometry and zero length rather than throwing; movement legs throw.
 - **Untagged lane links.** Three internal tags in the lane data, `segment`, `segment2` and `pacific_ocean`, stitch the antimeridian and are never reported or restrictable.
 - **Straight legs.** Road, rail and air legs are great-circle lines, not routed on any network.
-- **Snapping is planar.** Nearest lane points are found on flat longitude and latitude, so accuracy drops near the poles.
 - **Time and emissions are estimates** from the defaults in the Time and Emissions sections, with no customs, waiting or schedule effects.
 - **Per-thread search buffers** hold about 300 KB for the lifetime of each thread that routes.
 
@@ -321,7 +321,7 @@ Everything here is deliberate and documented, but each is a simplification you s
 | `IncludePorts` | `false` | Route from and to the nearest ports instead of the raw points. |
 | `PortParameters` | `null` | Terminal-only, country filters, area polygons. `Strict` is true by default: a filter that matches no port yields no port rather than silently widening. |
 | `ReturnPassages` | `false` | Populate `traversed_passages`. |
-| `Algorithm` | `"dijkstra"` | `"dijkstra"` or `"astar"`. Both return the same path. |
+| `Algorithm` | `"dijkstra"` | `"dijkstra"` or `"astar"`. Both return an optimal cost; equal-cost route geometry can differ. |
 
 ## Performance
 
@@ -355,35 +355,35 @@ src/
   SeaRoute/                 the library, packed as SeaRoute.Net
     Common/                 Coordinate, Haversine, DistanceUnit, antimeridian normaliser, point-in-polygon
     Data/                   marnet.json.gz, ports.json.gz, unlocode.json.gz and their loader
-    GeoJson/                Feature, FeatureCollection, LineString, properties and the shared serializer
+    GeoJson/                Feature, FeatureCollection, LineString/MultiLineString and serializer
     Graph/                  MaritimeGraph, BidirectionalDijkstra, AStar, per-thread search buffers
     Locations/              UN/LOCODE entry, functions and lookup
     Movements/              multi-leg movements: legs, parser, request, result, location resolution
     Passages/               passage identifiers
     Ports/                  Port, PortDatabase, PortParameters, AreaFeature, PortProps
-    Spatial/                2D KD-tree
+    Spatial/                spherical 3D KD-tree
     ISeaRouteEngine.cs      engine interface
     SeaRouteEngine.cs       ISeaRouteEngine implementation
     SeaRouteOptions.cs      request options
     SeaRouter.cs            static facade
   SeaRoute.Sample/          console app exercising every entry point
 tests/
-  SeaRoute.Tests/           xunit suite: routing, passages, ports, KD-tree, units, concurrency, movements
+  SeaRoute.Tests/           multi-target xunit suite: routing, passages, ports, spatial, graph and movements
 benchmarks/
   SeaRoute.Benchmarks/      BenchmarkDotNet routing benchmarks
 docs/
   waypoints-and-choke-points.md   every waypoint type and all 13 passages with measured detours
-  diagrams/                 the three diagrams as editable HTML, SVG and PNG
+  diagrams/                 editable HTML diagrams with SVG and selected PNG exports
 ```
 
 ## Building, testing and trying it out
 
 ```bash
-dotnet build SeaRoute.Net.slnx -c Release
+dotnet build SeaRoute.Net.slnx -c Release -m:1 -nr:false
 ```
 
 ```bash
-dotnet test tests/SeaRoute.Tests
+dotnet test tests/SeaRoute.Tests -c Release -m:1 -nr:false
 ```
 
 ```bash
@@ -395,18 +395,18 @@ The sample prints twelve worked examples covering coordinates, port codes, restr
 To produce the NuGet package locally:
 
 ```bash
-dotnet pack src/SeaRoute/SeaRoute.csproj -c Release -o ./artifacts
+dotnet pack src/SeaRoute/SeaRoute.csproj -c Release -m:1 -nr:false -o ./artifacts
 ```
 
 ## Data
 
-- **Marnet**, Eurostat's global network of shipping lanes, published by its GISCO geographic unit for measuring sea distances between ports: 9,708 nodes that are points along a lane, 31,940 directed edges that carry the distance in kilometres, with passage tags on canals and straits.
-- **World ports**: 3,955 ports with UN/LOCODE, name, country, terminal flag and permitted destination countries.
+- **Marnet and antimeridian segments**, transformed from searoute-py 1.6.0: 9,708 nodes and 31,950 directed edges with distance and passage tags.
+- **World ports**, transformed from searoute-py 1.6.0: 3,962 records with code, name, country, terminal flag and permitted destination countries.
 - **UN/LOCODE**, the UNECE code list for trade and transport locations: 106,588 codes with name and function flags, of which 84,516 carry coordinates to one minute of arc. Used to resolve movement legs that name airports, terminals and inland places. Loaded only when a movement needs it.
 - **UN/LOCODE supplement**: a hand-maintained JSON file of coordinates for codes UNECE publishes without any, each with its source. Currently four entries: Gatwick, Shanghai Railway Station, Shanghai Hongqiao and Melrose. Applied only where UNECE has no coordinate.
 
-All three are embedded as gzip-compressed JSON, about 1.7 MB in total, and loaded lazily on first use.
+All datasets are embedded as gzip-compressed JSON, about 1.7 MB in total, and loaded lazily on first use. Exact input and output hashes, transformations and the known UN/LOCODE edition gap are in [DATA_PROVENANCE.md](DATA_PROVENANCE.md); licensing and attribution are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ## Licence
 
-Licensed under the [Apache License, Version 2.0](LICENSE).
+SeaRoute.Net code is licensed under the [Apache License, Version 2.0](LICENSE). Embedded data retains its own terms; see [third-party notices](THIRD-PARTY-NOTICES.md).

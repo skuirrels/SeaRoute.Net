@@ -9,7 +9,7 @@ namespace SeaRoute.Ports;
 public sealed class PortDatabase
 {
     private readonly List<Port> _ports;
-    private readonly Dictionary<string, Port> _portsByCode;
+    private readonly Dictionary<string, IReadOnlyList<Port>> _portsByCode;
     private readonly KdTree<Port> _kdTree;
 
     /// <summary>Total number of ports.</summary>
@@ -20,19 +20,34 @@ public sealed class PortDatabase
     /// </summary>
     public PortDatabase(IEnumerable<Port> ports)
     {
+        ArgumentNullException.ThrowIfNull(ports);
         _ports = ports.ToList();
-        _portsByCode = new Dictionary<string, Port>(StringComparer.OrdinalIgnoreCase);
+        var portsByCode = new Dictionary<string, List<Port>>(StringComparer.OrdinalIgnoreCase);
 
         var treeItems = new List<(Coordinate Point, Port Value)>(_ports.Count);
         foreach (var port in _ports)
         {
+            ArgumentNullException.ThrowIfNull(port);
+            port.Coordinate.Validate();
+            if (port.ToCountries is null)
+                throw new ArgumentException($"Port '{port.PortCode}' has a null destination-country list.", nameof(ports));
+            if (!double.IsFinite(port.TerminalFlag))
+                throw new ArgumentException($"Port '{port.PortCode}' has a non-finite terminal flag.", nameof(ports));
             treeItems.Add((port.Coordinate, port));
             if (!string.IsNullOrEmpty(port.PortCode))
             {
-                _portsByCode.TryAdd(port.PortCode, port);
+                if (!portsByCode.TryGetValue(port.PortCode, out var candidates))
+                {
+                    candidates = [];
+                    portsByCode.Add(port.PortCode, candidates);
+                }
+                candidates.Add(port);
             }
         }
-
+        _portsByCode = portsByCode.ToDictionary(
+            pair => pair.Key,
+            pair => (IReadOnlyList<Port>)pair.Value.AsReadOnly(),
+            StringComparer.OrdinalIgnoreCase);
         _kdTree = new KdTree<Port>(treeItems);
     }
 
@@ -41,7 +56,42 @@ public sealed class PortDatabase
     /// </summary>
     public Port? GetByCode(string portCode)
     {
-        return _portsByCode.TryGetValue(portCode, out var port) ? port : null;
+        ArgumentException.ThrowIfNullOrWhiteSpace(portCode);
+        var candidates = GetByCodeCandidates(portCode);
+        return candidates.Count switch
+        {
+            0 => null,
+            1 => candidates[0],
+            _ => throw new InvalidOperationException(
+                $"Port code '{portCode.Trim().ToUpperInvariant()}' is ambiguous ({candidates.Count} records). " +
+                "Use GetByCode(code, near) to select the geographically nearest record.")
+        };
+    }
+
+    /// <summary>Gets every port record for a code. Some upstream port codes are not unique.</summary>
+    public IReadOnlyList<Port> GetByCodeCandidates(string portCode)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(portCode);
+        return _portsByCode.TryGetValue(portCode.Trim(), out var ports) ? ports : Array.Empty<Port>();
+    }
+
+    /// <summary>Gets the record for a code that is geographically nearest to a known coordinate.</summary>
+    public Port? GetByCode(string portCode, Coordinate near)
+    {
+        near.Validate();
+        var candidates = GetByCodeCandidates(portCode);
+        Port? best = null;
+        double bestDistance = double.PositiveInfinity;
+        foreach (var candidate in candidates)
+        {
+            double distance = Haversine.UnitSphereDistanceSquared(near, candidate.Coordinate);
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                best = candidate;
+            }
+        }
+        return best;
     }
 
     /// <summary>
@@ -63,7 +113,9 @@ public sealed class PortDatabase
         string? toCountry = null,
         bool strict = true)
     {
-        // Fast path: when no filters are requested, query the 2D KD-Tree directly in O(log N)
+        point.Validate();
+
+        // Fast path: when no filters are requested, query the spherical KD-Tree directly in O(log N)
         if (!onlyTerminals && string.IsNullOrWhiteSpace(country) && string.IsNullOrWhiteSpace(toCountry))
         {
             return FindNearestPort(point);
@@ -80,10 +132,10 @@ public sealed class PortDatabase
 
         if (!string.IsNullOrWhiteSpace(country))
         {
-            string ctyUpper = country.Trim().ToUpperInvariant();
+            string normalizedCountry = NormalizeCountry(country);
             var countryPorts = candidates.Where(p =>
-                string.Equals(p.Country, ctyUpper, StringComparison.OrdinalIgnoreCase) ||
-                p.PortCode.StartsWith(ctyUpper, StringComparison.OrdinalIgnoreCase)).ToList();
+                NormalizeCountry(p.Country) == normalizedCountry ||
+                (normalizedCountry.Length == 2 && p.PortCode.StartsWith(normalizedCountry, StringComparison.OrdinalIgnoreCase))).ToList();
 
             if (countryPorts.Count > 0 || strict)
                 candidates = countryPorts;
@@ -91,9 +143,9 @@ public sealed class PortDatabase
 
         if (!string.IsNullOrWhiteSpace(toCountry))
         {
-            string toCtyUpper = toCountry.Trim().ToUpperInvariant();
+            string toCtyUpper = NormalizeCountry(toCountry);
             var toCountryPorts = candidates.Where(p =>
-                p.ToCountries.Any(tc => string.Equals(tc, toCtyUpper, StringComparison.OrdinalIgnoreCase))).ToList();
+                p.ToCountries.Any(tc => NormalizeCountry(tc) == toCtyUpper)).ToList();
 
             if (toCountryPorts.Count > 0 || strict)
                 candidates = toCountryPorts;
@@ -107,13 +159,13 @@ public sealed class PortDatabase
             candidateList = _ports;
         }
 
-        // Find closest among candidates using Euclidean distance
+        // Find closest among candidates using spherical chord distance.
         Port? bestPort = null;
         double bestDistSq = double.PositiveInfinity;
 
         foreach (var port in candidateList)
         {
-            double dSq = Haversine.EuclideanDistanceSquared(point, port.Coordinate);
+            double dSq = Haversine.UnitSphereDistanceSquared(point, port.Coordinate);
             if (dSq < bestDistSq)
             {
                 bestDistSq = dSq;
@@ -173,6 +225,8 @@ public sealed class PortDatabase
             return [];
 
         double sumShares = smallestArea.PreferredPorts.Sum(p => p.Share);
+        if (!double.IsFinite(sumShares))
+            throw new ArgumentException($"Preferred port shares in area '{smallestArea.Name}' overflow their finite range.", nameof(areaFeatures));
         double divisor = Math.Max(sumShares, 1.0);
 
         var result = new List<Port>();
@@ -181,7 +235,8 @@ public sealed class PortDatabase
             double normalizedShare = pref.Share / divisor;
 
             Port resolvedPort;
-            if (_portsByCode.TryGetValue(pref.PortId, out var existing))
+            var existing = GetByCode(pref.PortId, point);
+            if (existing is not null)
             {
                 resolvedPort = existing.WithShare(normalizedShare);
             }
@@ -273,5 +328,17 @@ public sealed class PortDatabase
         }
 
         return matrix;
+    }
+
+    private static string NormalizeCountry(string country)
+    {
+        var chars = new char[country.Length];
+        int length = 0;
+        foreach (char c in country)
+        {
+            if (char.IsLetterOrDigit(c))
+                chars[length++] = char.ToUpperInvariant(c);
+        }
+        return new string(chars, 0, length);
     }
 }

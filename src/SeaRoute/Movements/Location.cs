@@ -1,4 +1,5 @@
 using SeaRoute.Common;
+using SeaRoute.Locations;
 using SeaRoute.Ports;
 
 namespace SeaRoute.Movements;
@@ -52,7 +53,14 @@ public sealed class Location
 /// <param name="Coordinate">Resolved coordinate.</param>
 /// <param name="Port">Matching port from the embedded database, when the position came from it.</param>
 /// <param name="Source">Where the position came from: "coordinates", "ports", "unlocode" or "resolver".</param>
-public readonly record struct ResolvedLocation(string? Code, string? Name, Coordinate Coordinate, Port? Port, string Source)
+/// <param name="Functions">Known UN/LOCODE functions, or null for an unclassified custom coordinate.</param>
+public readonly record struct ResolvedLocation(
+    string? Code,
+    string? Name,
+    Coordinate Coordinate,
+    Port? Port,
+    string Source,
+    LocationFunctions? Functions = null)
 {
     /// <summary>Best available label: code, then name, then coordinate.</summary>
     public string Label => Code ?? Name ?? Coordinate.ToString();

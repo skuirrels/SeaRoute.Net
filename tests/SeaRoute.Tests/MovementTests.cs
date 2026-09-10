@@ -11,7 +11,7 @@ public class MovementTests
     private const string ShanghaiMovement = """
         Pickup GBLGW to Port GBFXT Road
         Port GBFXT to Port CNSHG Sea
-        Delivery from port CNSHG to place CNSHZ Sea
+        Delivery from port CNSHG to place CNSHZ Road
         """;
 
     // AUMRS is Melrose, an inland South Australian town 800 km from Melbourne, so its delivery leg is by road.
@@ -47,7 +47,7 @@ public class MovementTests
         legs[1].To.Code.Should().Be("CNSHG");
 
         legs[2].Kind.Should().Be(LegKind.Delivery);
-        legs[2].Mode.Should().Be(TransportMode.Sea);
+        legs[2].Mode.Should().Be(TransportMode.Road);
         legs[2].From.Code.Should().Be("CNSHG");
         legs[2].To.Code.Should().Be("CNSHZ");
     }
@@ -72,7 +72,7 @@ public class MovementTests
 
         var pickup = result.Legs[0];
         pickup.Leg.Mode.Should().Be(TransportMode.Road);
-        pickup.Feature.Geometry.Coordinates.Should().HaveCount(2);
+        pickup.Feature.Geometry!.Coordinates.Should().HaveCount(2);
         pickup.Length.Should().BeInRange(120.0, 160.0);
         pickup.DurationHours.Should().BeApproximately(pickup.Length / 60.0, 1e-6);
         pickup.To.Port.Should().NotBeNull();
@@ -80,7 +80,7 @@ public class MovementTests
 
         var main = result.Legs[1];
         main.Leg.Mode.Should().Be(TransportMode.Sea);
-        main.Feature.Geometry.Coordinates.Count.Should().BeGreaterThan(20);
+        main.Feature.Geometry!.Coordinates.Count.Should().BeGreaterThan(20);
         main.Feature.Properties.PortOrigin!.PortCode.Should().Be("GBFXT");
         main.To.Label.Should().Be("CNSHG");
         main.To.Source.Should().Be("unlocode", "UN/LOCODE says CNSHG is Shanghai Pt while the port list says Sanshan, so UN/LOCODE wins");
@@ -95,8 +95,8 @@ public class MovementTests
 
         result.TotalLength.Should().BeApproximately(result.Legs.Sum(l => l.Length), 1e-6);
         result.TotalDurationHours.Should().BeApproximately(result.Legs.Sum(l => l.DurationHours), 1e-6);
-        result.LengthByMode[TransportMode.Sea].Should().BeApproximately(main.Length + delivery.Length, 1e-6);
-        result.LengthByMode[TransportMode.Road].Should().BeApproximately(pickup.Length, 1e-6);
+        result.LengthByMode[TransportMode.Sea].Should().BeApproximately(main.Length, 1e-6);
+        result.LengthByMode[TransportMode.Road].Should().BeApproximately(pickup.Length + delivery.Length, 1e-6);
     }
 
     [Fact]
@@ -133,8 +133,8 @@ public class MovementTests
 
         for (int i = 0; i < result.Legs.Count - 1; i++)
         {
-            var end = result.Legs[i].Feature.Geometry.Coordinates[^1];
-            var start = result.Legs[i + 1].Feature.Geometry.Coordinates[0];
+            var end = result.Legs[i].Feature.Geometry!.Coordinates[^1];
+            var start = result.Legs[i + 1].Feature.Geometry!.Coordinates[0];
             start[0].Should().BeApproximately(end[0], 1e-9, $"leg {i + 2} must start where leg {i + 1} ends");
             start[1].Should().BeApproximately(end[1], 1e-9);
         }
@@ -144,10 +144,20 @@ public class MovementTests
     public void Movement_ShortSeaLegSnappingToOneNode_StillHasLength()
     {
         // Melbourne port and Altona, 10 km away, snap to the same Marnet node.
-        var result = SeaRouter.CalculateMovement("Delivery from port AUMEL to place AUALT Sea");
+        var request = new MovementRequest
+        {
+            Legs =
+            [
+                new MovementLeg(
+                    Location.FromCoordinate(new Coordinate(144.95, -37.84), "Melbourne water"),
+                    Location.FromCoordinate(new Coordinate(144.82, -37.86), "Altona water"),
+                    TransportMode.Sea)
+            ]
+        };
+        var result = SeaRouteEngine.Default.CalculateMovement(request);
 
         var leg = result.Legs[0];
-        leg.Feature.Geometry.Coordinates.Count.Should().BeGreaterThanOrEqualTo(2);
+        leg.Feature.Geometry!.Coordinates.Count.Should().BeGreaterThanOrEqualTo(2);
         leg.Length.Should().BeInRange(5.0, 60.0);
         leg.DurationHours.Should().BeGreaterThan(0.0);
     }
@@ -183,13 +193,12 @@ public class MovementTests
     }
 
     [Fact]
-    public void Movement_PortListWinsWhenNamesAgreeByPrefix()
+    public void Movement_RejectsPortLabelWhenUnLocodeSaysAirport()
     {
-        // UN/LOCODE names CNTSN "Tianjin Binhai International Apt" without coordinates; the port list has "Tianjin".
-        var result = SeaRouter.CalculateMovement("Port FRLEH to Port CNTSN Sea");
+        // The port list calls CNTSN Tianjin, while embedded UN/LOCODE records only an airport function.
+        var act = () => SeaRouter.CalculateMovement("Port FRLEH to Port CNTSN Sea");
 
-        result.Legs[0].To.Source.Should().Be("ports");
-        result.Legs[0].To.Port!.Name.Should().Be("Tianjin");
+        act.Should().Throw<ArgumentException>().WithMessage("*CNTSN*declared as Port*airport*");
     }
 
     [Fact]
@@ -232,8 +241,17 @@ public class MovementTests
     [Fact]
     public void Movement_HonoursUnitsAndModeSpeeds()
     {
-        var request = new MovementRequest { Legs = MovementParser.Parse("Pickup GBLON to Port GBFXT Rail") };
-        request.Coordinates["GBLON"] = ExtraPlaces["GBLON"];
+        var request = new MovementRequest
+        {
+            Legs =
+            [
+                new MovementLeg(
+                    Location.FromCoordinate(ExtraPlaces["GBLON"], "London"),
+                    Location.FromCoordinate(new Coordinate(1.3108, 51.9630), "Felixstowe"),
+                    TransportMode.Rail,
+                    LegKind.Pickup)
+            ]
+        };
         request.SeaOptions = new SeaRouteOptions { Units = DistanceUnit.NauticalMiles };
         request.SpeedsKmh[TransportMode.Rail] = 100.0;
 
@@ -364,7 +382,7 @@ public class MovementTests
 
         var route = SeaRouter.Calculate(melbourne, altona);
 
-        route.Geometry.Coordinates.Should().HaveCount(2);
+        route.Geometry!.Coordinates.Should().HaveCount(2);
         route.Properties.Length.Should().BeInRange(5.0, 60.0);
     }
 
@@ -399,7 +417,7 @@ public class MovementTests
 
         var flight = result.Legs[1];
         flight.Leg.Mode.Should().Be(TransportMode.Air);
-        flight.Feature.Geometry.Coordinates.Should().HaveCount(2, "an air leg is one straight great-circle line");
+        flight.Feature.Geometry!.Coordinates.Should().HaveCount(2, "an air leg is one straight great-circle line");
         flight.Length.Should().BeInRange(16500.0, 17300.0, "Heathrow to Melbourne great-circle distance");
         flight.DurationHours.Should().BeApproximately(flight.Length / 800.0, 1e-6);
         flight.Feature.Properties.TraversedPassages.Should().BeNullOrEmpty();

@@ -72,7 +72,7 @@ public class PassageRestrictionTests
     }
 
     [Fact]
-    public void TestRestrictedPaths_WhenBlocked_ReturnsEmptyCoordinatesAndZeroLength()
+    public void TestRestrictedPaths_WhenBlocked_ReturnsNullGeometryAndZeroLength()
     {
         // Route from Singapore to Piraeus with both Suez and Gibraltar restricted
         var origin = new Coordinate(103.85457, 1.25760);
@@ -84,7 +84,7 @@ public class PassageRestrictionTests
             restrictions: [Passage.Suez, Passage.Gibraltar],
             returnPassages: true);
 
-        route.Geometry.Coordinates.Should().BeEmpty();
+        route.Geometry.Should().BeNull();
         route.Properties.Length.Should().Be(0.0);
         route.Properties.DurationHours.Should().Be(0.0);
     }

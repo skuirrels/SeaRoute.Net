@@ -17,7 +17,7 @@ public class UnitConversionTests
     [InlineData("rad", DistanceUnit.Radians, 1.0 / 6371008.8)]
     [InlineData("naut", DistanceUnit.NauticalMiles, 0.000539956803)]
     [InlineData("nm", DistanceUnit.NauticalMiles, 0.000539956803)]
-    [InlineData("yd", DistanceUnit.Yards, 0.914411119)]
+    [InlineData("yd", DistanceUnit.Yards, 1.0936132983377078)]
     public void UnitParsingAndFactors_ShouldMatchExpected(string unitStr, DistanceUnit expectedUnit, double expectedFactor)
     {
         var parsed = DistanceUnitExtensions.Parse(unitStr);
@@ -78,5 +78,23 @@ public class UnitConversionTests
         double distKm = Haversine.DistanceKm(pt, pt);
         distKm.Should().Be(0.0);
         double.IsNaN(distKm).Should().BeFalse();
+    }
+
+    [Fact]
+    public void UnknownDistanceUnit_IsRejectedByPublicConversionHelpers()
+    {
+        var invalid = (DistanceUnit)999;
+
+        FluentActions.Invoking(() => invalid.ToUnitString()).Should().Throw<ArgumentOutOfRangeException>();
+        FluentActions.Invoking(() => invalid.GetConversionFactorFromMeters()).Should().Throw<ArgumentOutOfRangeException>();
+        FluentActions.Invoking(() => invalid.GetSpeedCoefficient()).Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void HaversineDistance_RejectsInvalidCoordinates()
+    {
+        var act = () => Haversine.DistanceKm(new Coordinate(0, 91), new Coordinate(0, 0));
+
+        act.Should().Throw<ArgumentException>().WithMessage("*Latitude*");
     }
 }

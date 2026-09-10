@@ -26,7 +26,7 @@ public sealed class SeaRouteOptions
     public double SpeedKnots { get; set; } = 16.0;
 
     /// <summary>
-    /// Whether to explicitly prepend the origin and append the destination coordinates to the route LineString.
+    /// Whether to explicitly prepend the origin and append the destination coordinates to the route geometry.
     /// Default is false.
     /// </summary>
     public bool AppendOriginDestination { get; set; }
@@ -60,10 +60,34 @@ public sealed class SeaRouteOptions
         Units = Units,
         SpeedKnots = SpeedKnots,
         AppendOriginDestination = AppendOriginDestination,
-        Restrictions = new HashSet<string>(Restrictions, StringComparer.OrdinalIgnoreCase),
+        Restrictions = Restrictions is null
+            ? throw new ArgumentException("Restrictions cannot be null.", nameof(Restrictions))
+            : new HashSet<string>(Restrictions, StringComparer.OrdinalIgnoreCase),
         IncludePorts = IncludePorts,
-        PortParameters = PortParameters,
+        PortParameters = PortParameters?.Clone(),
         ReturnPassages = ReturnPassages,
         Algorithm = Algorithm
     };
+
+    /// <summary>Validates values that affect routing, timing, and passage selection.</summary>
+    public void Validate()
+    {
+        if (!Enum.IsDefined(Units))
+            throw new ArgumentOutOfRangeException(nameof(Units), Units, "Unknown distance unit.");
+        if (!double.IsFinite(SpeedKnots) || SpeedKnots <= 0)
+            throw new ArgumentOutOfRangeException(nameof(SpeedKnots), SpeedKnots, "Vessel speed must be finite and positive.");
+        if (Restrictions is null)
+            throw new ArgumentException("Restrictions cannot be null.", nameof(Restrictions));
+        foreach (string restriction in Restrictions)
+        {
+            if (string.IsNullOrWhiteSpace(restriction) || !Passage.ValidPassages.Contains(restriction.Trim()))
+                throw new ArgumentException($"Unknown passage restriction '{restriction}'. Use a value from Passage.ValidPassages.", nameof(Restrictions));
+        }
+        if (!string.Equals(Algorithm, "dijkstra", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(Algorithm, "astar", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException($"Unknown pathfinding algorithm '{Algorithm}'. Expected 'dijkstra' or 'astar'.", nameof(Algorithm));
+        }
+        PortParameters?.Validate();
+    }
 }
