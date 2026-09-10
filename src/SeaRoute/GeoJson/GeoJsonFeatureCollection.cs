@@ -49,4 +49,18 @@ public sealed class MovementProperties
     /// <summary>Number of legs.</summary>
     [JsonPropertyName("legs")]
     public int LegCount { get; set; }
+
+    /// <summary>Sum of leg CO2e per tonne of cargo, in kilograms.</summary>
+    [JsonPropertyName("total_co2e_kg_per_tonne")]
+    public double TotalCo2eKgPerTonne { get; set; }
+
+    /// <summary>Cargo weight in tonnes, when stated.</summary>
+    [JsonPropertyName("cargo_tonnes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? CargoTonnes { get; set; }
+
+    /// <summary>Sum of leg CO2e in kilograms, when a cargo weight is stated.</summary>
+    [JsonPropertyName("total_co2e_kg")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? TotalCo2eKg { get; set; }
 }

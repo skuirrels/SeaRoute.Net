@@ -59,4 +59,19 @@ public sealed class SeaRouteProperties
     [JsonPropertyName("to")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? To { get; set; }
+
+    /// <summary>Well-to-wheel CO2e intensity applied to the leg, in grams per tonne-kilometre.</summary>
+    [JsonPropertyName("co2e_g_per_tonne_km")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Co2eGramsPerTonneKm { get; set; }
+
+    /// <summary>CO2e for the leg per tonne of cargo, in kilograms: intensity times leg length in kilometres.</summary>
+    [JsonPropertyName("co2e_kg_per_tonne")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Co2eKgPerTonne { get; set; }
+
+    /// <summary>CO2e for the leg in kilograms, present when the movement states a cargo weight.</summary>
+    [JsonPropertyName("co2e_kg")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Co2eKg { get; set; }
 }

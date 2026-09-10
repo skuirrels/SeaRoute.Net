@@ -248,6 +248,32 @@ Each leg feature carries `leg`, `mode`, `kind`, `from` and `to` in its propertie
 
 Codes resolve in this order: a coordinate supplied by the caller, the embedded port list, then an `ILocationResolver` if one is set. Check that the embedded list agrees with your code conventions before relying on it. Carriers use `CNSHG` for the Port of Shanghai and `CNSHA` for Hongqiao airport, but the embedded list holds `CNSHG` as Sanshan, an inland Yangtze port, and puts Shanghai's seaport under `CNSHA`. Supplying a coordinate for a code overrides the list, as the tests do for `CNSHG`. An unknown code with no coordinate throws an `ArgumentException` naming the code rather than guessing.
 
+### Emissions
+
+Every movement leg carries a well-to-wheel CO2e estimate, and the totals add them up. The figures are intensity-based: grams of CO2e per tonne of cargo per kilometre, from the GLEC Framework defaults that ISO 14083 builds on. Pass `cargoTonnes` to get absolute kilograms as well.
+
+```csharp
+var movement = SeaRouter.CalculateMovement(legs, places, cargoTonnes: 20.0);
+
+foreach (var leg in movement.Legs)
+    Console.WriteLine($"{leg.Leg.Mode}: {leg.Co2eGramsPerTonneKm} g/t-km, {leg.Co2eKgPerTonne:N1} kg/t, {leg.Co2eKg:N0} kg");
+
+Console.WriteLine($"{movement.TotalCo2eKgPerTonne:N1} kg CO2e per tonne, {movement.TotalCo2eKg:N0} kg for {movement.CargoTonnes} t");
+```
+
+Each leg feature gains `co2e_g_per_tonne_km`, `co2e_kg_per_tonne` and, with a cargo weight, `co2e_kg`; the collection gains `total_co2e_kg_per_tonne`, `cargo_tonnes` and `total_co2e_kg`.
+
+| Mode | Default, g CO2e per tonne-km, well-to-wheel | GLEC source |
+|---|---|---|
+| Sea | 7.6 | Table 46, industry-average dry container, 76 g per TEU-km at the GLEC average of 10 t per TEU |
+| Road | 92 | Europe starting value for an HGV over 20 t gross vehicle weight |
+| Rail | 28 | Table 38, European diesel traction, average mixed load |
+| Air, under 1,000 km | 1,130 | Table 35, ICAO/IATA RP1678 basis, aircraft type unknown |
+| Air, 1,000 to 3,700 km | 700 | Table 35, as above |
+| Air, over 3,700 km | 630 | Table 35, as above |
+
+Source: Smart Freight Centre, [GLEC Framework, July 2022 edition](https://smart-freight-centre-media.s3.amazonaws.com/documents/2019_GLEC_Framework_July_2022.pdf), Module 2. These are defaults for when carrier data is unavailable; the sea figure assumes an average dry container on an unknown trade lane, and reefer or trade-lane-specific values differ. Set `MovementRequest.Emissions` to your own `EmissionFactors` to override any of them.
+
 ## Options reference
 
 | `SeaRouteOptions` | Default | Description |

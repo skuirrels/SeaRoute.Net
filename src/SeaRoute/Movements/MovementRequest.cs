@@ -32,6 +32,17 @@ public sealed class MovementRequest
     public SeaRouteOptions? SeaOptions { get; set; }
 
     /// <summary>
+    /// CO2e intensity per mode used for the emission figures on each leg. Defaults to the GLEC values.
+    /// </summary>
+    public EmissionFactors Emissions { get; set; } = EmissionFactors.GlecDefaults;
+
+    /// <summary>
+    /// Cargo weight in tonnes. When set, each leg and the totals also report absolute CO2e in kilograms;
+    /// otherwise only the per-tonne figures are reported.
+    /// </summary>
+    public double? CargoTonnes { get; set; }
+
+    /// <summary>
     /// Assumed average speed in kilometres per hour for each non-sea mode, used to estimate leg duration.
     /// Defaults: Road 60, Rail 80, Air 800. Sea speed comes from <see cref="SeaOptions"/>.
     /// </summary>

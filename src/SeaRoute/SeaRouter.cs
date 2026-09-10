@@ -123,9 +123,10 @@ public static class SeaRouter
         string legsText,
         IReadOnlyDictionary<string, Coordinate>? coordinates = null,
         SeaRouteOptions? seaOptions = null,
-        ILocationResolver? resolver = null)
+        ILocationResolver? resolver = null,
+        double? cargoTonnes = null)
     {
-        var request = new MovementRequest { Legs = MovementParser.Parse(legsText) };
+        var request = new MovementRequest { Legs = MovementParser.Parse(legsText), CargoTonnes = cargoTonnes };
         if (coordinates != null)
         {
             foreach (var (code, coordinate) in coordinates)

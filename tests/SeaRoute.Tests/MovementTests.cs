@@ -351,6 +351,80 @@ public class MovementTests
         result.LengthByMode.Should().ContainKeys(TransportMode.Air, TransportMode.Road);
     }
 
+    [Fact]
+    public void Emissions_UseGlecDefaultsPerModeAndAirDistanceBand()
+    {
+        var f = EmissionFactors.GlecDefaults;
+
+        f.GramsPerTonneKm(TransportMode.Sea, 15000).Should().Be(7.6);
+        f.GramsPerTonneKm(TransportMode.Road, 100).Should().Be(92.0);
+        f.GramsPerTonneKm(TransportMode.Rail, 500).Should().Be(28.0);
+        f.GramsPerTonneKm(TransportMode.Air, 999).Should().Be(1130.0);
+        f.GramsPerTonneKm(TransportMode.Air, 1000).Should().Be(700.0);
+        f.GramsPerTonneKm(TransportMode.Air, 3700).Should().Be(700.0);
+        f.GramsPerTonneKm(TransportMode.Air, 3701).Should().Be(630.0);
+    }
+
+    [Fact]
+    public void Emissions_PerLegAndTotals_FollowIntensityTimesDistance()
+    {
+        var result = SeaRouter.CalculateMovement(MelbourneMovement, ExtraPlaces, cargoTonnes: 20.0);
+
+        var road = result.Legs[0];
+        road.Co2eGramsPerTonneKm.Should().Be(92.0);
+        road.Co2eKgPerTonne.Should().BeApproximately(92.0 * road.Length / 1000.0, 1e-9);
+        road.Co2eKg.Should().BeApproximately(road.Co2eKgPerTonne * 20.0, 1e-9);
+
+        var sea = result.Legs[1];
+        sea.Co2eGramsPerTonneKm.Should().Be(7.6);
+        sea.Co2eKgPerTonne.Should().BeApproximately(7.6 * sea.Length / 1000.0, 1e-9);
+
+        result.CargoTonnes.Should().Be(20.0);
+        result.TotalCo2eKgPerTonne.Should().BeApproximately(result.Legs.Sum(l => l.Co2eKgPerTonne), 1e-9);
+        result.TotalCo2eKg.Should().BeApproximately(result.TotalCo2eKgPerTonne * 20.0, 1e-9);
+    }
+
+    [Fact]
+    public void Emissions_WithoutCargoWeight_ReportOnlyPerTonneFigures()
+    {
+        var result = SeaRouter.CalculateMovement("Port GBFXT to Port SGSIN Sea");
+
+        result.CargoTonnes.Should().BeNull();
+        result.TotalCo2eKg.Should().BeNull();
+        result.Legs[0].Co2eKg.Should().BeNull();
+        result.Legs[0].Co2eKgPerTonne.Should().BeGreaterThan(100.0, "15,400 km at 7.6 g per tonne-km");
+
+        using var doc = JsonDocument.Parse(result.ToJson());
+        var props = doc.RootElement.GetProperty("features")[0].GetProperty("properties");
+        props.GetProperty("co2e_g_per_tonne_km").GetDouble().Should().Be(7.6);
+        props.TryGetProperty("co2e_kg", out _).Should().BeFalse();
+        doc.RootElement.GetProperty("properties").GetProperty("total_co2e_kg_per_tonne").GetDouble().Should().BeGreaterThan(100.0);
+    }
+
+    [Fact]
+    public void Emissions_ConvertLengthToKilometresWhenUnitsDiffer()
+    {
+        var request = new MovementRequest { Legs = MovementParser.Parse("Port GBFXT to Port SGSIN Sea") };
+        request.SeaOptions = new SeaRouteOptions { Units = DistanceUnit.NauticalMiles };
+
+        var inNaut = SeaRouteEngine.Default.CalculateMovement(request);
+        var inKm = SeaRouter.CalculateMovement("Port GBFXT to Port SGSIN Sea");
+
+        inNaut.Legs[0].Co2eKgPerTonne.Should().BeApproximately(inKm.Legs[0].Co2eKgPerTonne, 1e-6);
+    }
+
+    [Fact]
+    public void Emissions_CustomFactorsAreHonoured()
+    {
+        var request = new MovementRequest { Legs = MovementParser.Parse("Pickup GBLGW to Port GBFXT Road") };
+        request.Coordinates["GBLGW"] = ExtraPlaces["GBLGW"];
+        request.Emissions = new EmissionFactors { RoadGramsPerTonneKm = 50.0 };
+
+        var result = SeaRouteEngine.Default.CalculateMovement(request);
+
+        result.Legs[0].Co2eGramsPerTonneKm.Should().Be(50.0);
+    }
+
     private sealed class CountingResolver(params (string Code, Coordinate Coordinate)[] entries) : ILocationResolver
     {
         public int Calls { get; private set; }

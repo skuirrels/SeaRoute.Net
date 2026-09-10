@@ -137,21 +137,22 @@ PrintMovement("12. Movement with an air leg", """
 
 static void PrintMovement(string title, string legs, IReadOnlyDictionary<string, Coordinate> places)
 {
-    var movement = SeaRouter.CalculateMovement(legs, places, new SeaRouteOptions { ReturnPassages = true });
+    // A 20-tonne consignment: CO2e per leg uses GLEC well-to-wheel defaults per mode.
+    var movement = SeaRouter.CalculateMovement(legs, places, new SeaRouteOptions { ReturnPassages = true }, cargoTonnes: 20.0);
 
     Console.WriteLine();
     Console.WriteLine(title);
     foreach (var line in legs.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         Console.WriteLine("   " + line);
     Console.WriteLine();
-    Console.WriteLine($"   {"Leg",-4}{"Kind",-10}{"Mode",-6}{"From",-7}{"To",-7}{"Distance",12}{"Time",9}  Choke points");
+    Console.WriteLine($"   {"Leg",-4}{"Kind",-10}{"Mode",-6}{"From",-7}{"To",-7}{"Distance",12}{"Time",9}{"kg CO2e/t",12}{"kg CO2e",10}  Choke points");
     foreach (var leg in movement.Legs)
     {
         Console.WriteLine(
             $"   {leg.Sequence,-4}{leg.Leg.Kind,-10}{leg.Leg.Mode,-6}{leg.From.Label,-7}{leg.To.Label,-7}" +
-            $"{leg.Length,9:N0} km{leg.DurationHours,7:N1} h  {PassageNames(leg.Feature.Properties.TraversedPassages)}");
+            $"{leg.Length,9:N0} km{leg.DurationHours,7:N1} h{leg.Co2eKgPerTonne,12:N1}{leg.Co2eKg,10:N0}  {PassageNames(leg.Feature.Properties.TraversedPassages)}");
     }
-    Console.WriteLine($"   {"Total",-34}{movement.TotalLength,9:N0} km{movement.TotalDurationHours,7:N1} h");
+    Console.WriteLine($"   {"Total",-34}{movement.TotalLength,9:N0} km{movement.TotalDurationHours,7:N1} h{movement.TotalCo2eKgPerTonne,12:N1}{movement.TotalCo2eKg,10:N0}  for {movement.CargoTonnes:N0} t of cargo");
 }
 
 static string PassageNames(IReadOnlyList<string>? tags)

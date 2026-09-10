@@ -219,11 +219,27 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
             feature.Properties.Kind = leg.Kind.ToWireString();
             feature.Properties.From = from.Label;
             feature.Properties.To = to.Label;
+            ApplyEmissions(feature, leg.Mode, units, request);
 
             legResults.Add(new LegResult(sequence, leg, from, to, feature));
         }
 
-        return new MovementResult(legResults, units.ToUnitString());
+        return new MovementResult(legResults, units.ToUnitString(), request.CargoTonnes);
+    }
+
+    /// <summary>
+    /// Stamps the leg with its GLEC-style CO2e figures: intensity in g per tonne-km, kg per tonne of cargo for
+    /// the leg, and absolute kg when the request states a cargo weight. Length is converted to kilometres first.
+    /// </summary>
+    private static void ApplyEmissions(GeoJsonFeature feature, TransportMode mode, DistanceUnit units, MovementRequest request)
+    {
+        double lengthKm = feature.Properties.Length / (units.GetConversionFactorFromMeters() * 1000.0);
+        double gramsPerTonneKm = request.Emissions.GramsPerTonneKm(mode, lengthKm);
+        double kgPerTonne = gramsPerTonneKm * lengthKm / 1000.0;
+
+        feature.Properties.Co2eGramsPerTonneKm = gramsPerTonneKm;
+        feature.Properties.Co2eKgPerTonne = kgPerTonne;
+        feature.Properties.Co2eKg = request.CargoTonnes.HasValue ? kgPerTonne * request.CargoTonnes.Value : null;
     }
 
     private GeoJsonFeature CalculateSeaLeg(int sequence, MovementLeg leg, ResolvedLocation from, ResolvedLocation to, SeaRouteOptions options)
