@@ -9,6 +9,25 @@ namespace SeaRoute.Tests;
 public class RoutingTests
 {
     [Fact]
+    public void Readme_PortCodeRoute_AcceptsOptionsWithoutCoordinateFallback()
+    {
+        var route = SeaRouter.Calculate(
+            "AEJEA",
+            "AGSJS",
+            new SeaRouteOptions
+            {
+                Restrictions = [Passages.Passage.Suez],
+                ReturnPassages = true
+            });
+
+        route.Properties.PortOrigin!.PortCode.Should().Be("AEJEA");
+        route.Properties.PortDest!.PortCode.Should().Be("AGSJS");
+        route.Properties.TraversedPassages.Should().Contain(Passages.Passage.Ormuz);
+        route.Properties.TraversedPassages.Should().Contain(Passages.Passage.SouthAfrica);
+        route.Properties.TraversedPassages.Should().NotContain(Passages.Passage.Suez);
+    }
+
+    [Fact]
     public void MarseilleToCapeTown_NoAppend_ShouldMatchExpectedLength()
     {
         var origin = new Coordinate(5.333333, 43.333333);

@@ -4,19 +4,16 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)](src/SeaRoute/SeaRoute.csproj)
 
-Shortest sea route between any two points on Earth, as a single self-contained .NET library.
+Shortest sea route between ports identified by UN/LOCODE, as a single self-contained .NET library.
 
-Give it two coordinates or two UN/LOCODE port codes and it returns RFC 7946 GeoJSON with the distance, voyage duration, ports used and canals and straits passed through. Ordinary routes are `LineString`; antimeridian crossings are split into `MultiLineString`. The maritime network and world ports database are compressed and embedded in the assembly, so there is nothing to download, configure or host.
+Give it two UN/LOCODE port codes and it returns RFC 7946 GeoJSON with the distance, voyage duration, ports used and canals and straits passed through. Port codes are the native input; raw coordinates remain available as a fallback for custom or unresolved locations. Ordinary routes are `LineString`; antimeridian crossings are split into `MultiLineString`. The maritime network and world ports database are compressed and embedded in the assembly, so there is nothing to download, configure or host.
 
 ```csharp
 using SeaRoute;
-using SeaRoute.Common;
 
-var engine = SeaRouteEngine.Default;
-
-var route = engine.CalculateRoute(
-    new Coordinate(5.333333, 43.333333),    // Marseille  (lon, lat)
-    new Coordinate(18.366667, -33.916667),  // Cape Town
+var route = SeaRouter.Calculate(
+    "FRMRS", // Marseille
+    "ZACPT", // Cape Town
     new SeaRouteOptions { AppendOriginDestination = true });
 
 Console.WriteLine($"{route.Properties.Length:N0} {route.Properties.Units}, {route.Properties.DurationHours:N0} h");
@@ -50,8 +47,8 @@ Every request goes through the same six steps, in order. The datasets are decomp
 
 Source: [docs/diagrams/routing-pipeline.svg](docs/diagrams/routing-pipeline.svg) (vector) and [routing-pipeline.html](docs/diagrams/routing-pipeline.html).
 
-1. **Take the request.** An origin and a destination, as coordinates or UN/LOCODE port codes, plus options such as units, vessel speed and closed passages.
-2. **Resolve ports** only if `IncludePorts` is set. Each end is swapped for its nearest port from the embedded list of 3,962 records, optionally limited to container terminals or a country.
+1. **Take the request.** Normally an origin and destination as UN/LOCODE port codes, plus options such as units, vessel speed and closed passages. Coordinates are accepted for custom or unresolved endpoints.
+2. **Resolve ports.** The port-code overload resolves each code directly. Coordinate requests only resolve to nearby ports when `IncludePorts` is set; those ports can be limited by terminal or country.
 3. **Snap to the lane network.** Each end is matched to the geographically nearest point on Marnet using a spherical KD-tree, including across the date line and near the poles. Shanghai's port position is 18 km from its lane point, London's 23 km.
 4. **Find the shortest path** along the lanes with bidirectional Dijkstra, or A* on request. Lane links through a closed canal or strait are skipped; the Northwest Passage is closed by default. Shanghai to London gives 154 lane points over 19,397 km, through Malacca, Bab-el-Mandeb, Suez and Gibraltar.
 5. **Finish the route.** With `AppendOriginDestination` the real endpoints are added, and length and duration are measured: 156 points, 19,438 km, 656 hours at 16 knots.
@@ -127,6 +124,19 @@ Breaking changes in 2.0.0: `GeoJsonFeature.Geometry` is now nullable `GeoJsonGeo
 
 ## Usage
 
+### Routing by UN/LOCODE
+
+UN/LOCODE port codes are the primary input. The code must identify one record in the embedded port list; the selected port records are returned in `port_origin` and `port_dest`.
+
+```csharp
+var route = SeaRouter.Calculate("FRLEH", "CNTSN"); // Le Havre to Tianjin
+
+Console.WriteLine($"{route.Properties.PortOrigin!.Name} to {route.Properties.PortDest!.Name}");
+Console.WriteLine($"{route.Properties.Length:N0} {route.Properties.Units}");
+```
+
+Some upstream port codes occur more than once. A code-only route throws when a code is ambiguous instead of choosing an arbitrary record; use `SeaRouteEngine.Default.Ports.GetByCodeCandidates(code)` to inspect those records.
+
 ### Engine or static facade
 
 `SeaRouteEngine.Default` is a lazily initialised singleton that owns the graph and port index. Register it for dependency injection, or use it directly:
@@ -139,19 +149,15 @@ builder.Services.AddSingleton<ISeaRouteEngine>(SeaRouteEngine.Default);
 public sealed class ShippingController(ISeaRouteEngine seaRoute) : ControllerBase
 {
     [HttpGet("route")]
-    public IActionResult GetRoute(double fromLon, double fromLat, double toLon, double toLat)
+    public IActionResult GetRoute(string from, string to)
     {
-        var feature = seaRoute.CalculateRoute(fromLon, fromLat, toLon, toLat);
+        var feature = seaRoute.CalculateRoute(from, to);
         return Content(feature.ToJson(), "application/geo+json");
     }
 }
 ```
 
-The static `SeaRouter` class wraps the same engine with named parameters, one per option. `SeaRouter.Locate` turns a UN/LOCODE into a position from the embedded lists, so most callers never type a coordinate; the quick start above passes coordinates only to show how a place the data does not know is supplied.
-
-```csharp
-var route = SeaRouter.Calculate(SeaRouter.Locate("FRMRS").Coordinate, SeaRouter.Locate("ZACPT").Coordinate, appendOrigDest: true);
-```
+The static `SeaRouter` class wraps the same engine. Use the `SeaRouteOptions` overload when routing by port code, or the named-parameter overload for coordinate fallback routing.
 
 ### Avoiding canals and straits
 
@@ -159,22 +165,33 @@ var route = SeaRouter.Calculate(SeaRouter.Locate("FRMRS").Coordinate, SeaRouter.
 using SeaRoute.Passages;
 
 var route = SeaRouter.Calculate(
-    SeaRouter.Locate("AEJEA").Coordinate,   // Jebel Ali
-    SeaRouter.Locate("AGSJO").Coordinate,   // St John's, Antigua
-    restrictions: [Passage.Suez],
-    returnPassages: true);
+    "AEJEA", // Jebel Ali
+    "AGSJS", // St John's, Antigua
+    new SeaRouteOptions
+    {
+        Restrictions = [Passage.Suez],
+        ReturnPassages = true
+    });
 
 // route.Properties.TraversedPassages == ["ormuz", "south_africa"]
 ```
 
 Recognised passages: `Babalmandab`, `Bering`, `Bosporus`, `Chili` (Magellan Strait), `Dardanelles`, `Gibraltar`, `Malacca`, `Northwest` (restricted by default), `Ormuz`, `Panama`, `SouthAfrica` (Cape of Good Hope), `Suez`, `Sunda`. Each one, and every kind of waypoint a route can contain, is described with measured detour distances in [docs/waypoints-and-choke-points.md](docs/waypoints-and-choke-points.md).
 
-### Routing between ports
+### Routing with coordinates
+
+Coordinates are the fallback when an endpoint has no usable port code, when your authoritative position differs from the embedded data, or when routing to an offshore/custom point. Coordinate order is longitude, latitude.
 
 ```csharp
-var route = SeaRouter.Calculate("FRLEH", "CNTSN");   // Le Havre to Tianjin, UN/LOCODE
-Console.WriteLine($"{route.Properties.PortOrigin!.Name} to {route.Properties.PortDest!.Name}");
+using SeaRoute.Common;
+
+var route = SeaRouter.Calculate(
+    new Coordinate(5.333333, 43.333333),    // custom position near Marseille
+    new Coordinate(18.366667, -33.916667),  // custom position near Cape Town
+    appendOrigDest: true);
 ```
+
+When a broader UN/LOCODE entry is known but is not a uniquely routable port record, `SeaRouter.Locate(code)` can resolve its published position for use with this coordinate overload.
 
 ### Inland points resolved to the nearest terminal
 
