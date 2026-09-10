@@ -44,48 +44,11 @@ Console.WriteLine($"{route.Properties.Length:N0} {route.Properties.Units}, {rout
 
 Every request flows through the same pipeline. The two spatial indexes and the graph are built once on first use and shared, immutably, by every thread afterwards.
 
-```mermaid
-flowchart LR
-    subgraph Input
-        A["Origin and destination<br/>coordinates or port codes"]
-        O["SeaRouteOptions<br/>units, speed, restrictions,<br/>ports, algorithm"]
-    end
+<p align="center">
+  <img src="docs/diagrams/routing-pipeline.png" alt="SeaRoute.Net routing pipeline: a request is optionally resolved to ports, snapped to the nearest Marnet graph node, searched with bidirectional Dijkstra or A*, post-processed and returned as a GeoJSON feature" width="100%">
+</p>
 
-    subgraph Ports["Port resolution (optional)"]
-        P1["KD-tree over<br/>3,955 world ports"]
-        P2["Area polygons with<br/>weighted preferred ports"]
-    end
-
-    subgraph Graph["Maritime graph (Marnet)"]
-        G1["KD-tree snaps each<br/>endpoint to the nearest<br/>of 9,708 nodes"]
-        G2{"Algorithm"}
-        G3["Bidirectional Dijkstra"]
-        G4["A* with haversine<br/>heuristic"]
-        G5["Edges tagged with a<br/>restricted passage<br/>are skipped"]
-    end
-
-    subgraph Post["Post-processing"]
-        N1["Unwrap longitudes across<br/>the antimeridian"]
-        N2["Collect passages<br/>traversed"]
-        N3["Haversine length in<br/>requested units,<br/>duration at given speed"]
-    end
-
-    R["GeoJSON Feature<br/>LineString + properties"]
-
-    A --> P1
-    O --> P1
-    P1 --> P2
-    P2 --> G1
-    A -. ports disabled .-> G1
-    G1 --> G2
-    G2 -- dijkstra --> G3
-    G2 -- astar --> G4
-    G5 -.-> G3
-    G5 -.-> G4
-    G3 --> N1
-    G4 --> N1
-    N1 --> N2 --> N3 --> R
-```
+Source: [docs/diagrams/routing-pipeline.svg](docs/diagrams/routing-pipeline.svg) (vector) and [routing-pipeline.html](docs/diagrams/routing-pipeline.html).
 
 Key design points:
 
