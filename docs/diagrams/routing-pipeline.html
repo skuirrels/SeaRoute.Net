@@ -55,7 +55,7 @@
 
     <svg viewBox="0 0 1280 464" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="routing-pipeline-title routing-pipeline-desc">
       <title id="routing-pipeline-title">SeaRoute.Net routing pipeline</title>
-      <desc id="routing-pipeline-desc">Six numbered steps from left to right: take the request, optionally resolve ports, snap each point to the shipping-lane network, find the shortest path along the lanes avoiding closed passages, finish the route by adding the endpoints and measuring length and time, and return a GeoJSON feature. Two embedded datasets feed the steps: world ports and the Marnet lane network. A strip below follows a Marseille to Cape Town request through every step.</desc>
+      <desc id="routing-pipeline-desc">Six numbered steps from left to right: take the request, optionally resolve ports, snap each point to the shipping-lane network, find the shortest path along the lanes avoiding closed passages, finish the route by adding the endpoints and measuring length and time, and return a GeoJSON feature. Two embedded datasets feed the steps: world ports and the Marnet lane network. A strip below follows a Shanghai to London request through every step.</desc>
       <defs>
         <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#5b6472"/></marker>
         <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#0a34a1"/></marker>
@@ -155,31 +155,31 @@
 
       <!-- Worked example strip, one column under each step -->
       <line x1="40" y1="280" x2="1240" y2="280" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
-      <text x="40" y="300" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">WORKED EXAMPLE · MARSEILLE TO CAPE TOWN WITH DEFAULT OPTIONS</text>
+      <text x="40" y="300" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">WORKED EXAMPLE · SHANGHAI TO LONDON WITH DEFAULT OPTIONS</text>
 
-      <text x="48" y="324" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">from 5.33°E 43.33°N</text>
-      <text x="48" y="340" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">to 18.37°E 33.92°S</text>
+      <text x="48" y="324" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">from 121.47°E 31.23°N</text>
+      <text x="48" y="340" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">to 0.12°W 51.51°N</text>
       <text x="48" y="356" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">km · 24 knots · ports off</text>
 
       <text x="256" y="324" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">skipped: IncludePorts is off</text>
       <text x="256" y="340" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">both points pass through</text>
       <text x="256" y="356" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">unchanged</text>
 
-      <text x="464" y="324" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">Marseille: lane point 2 km away</text>
-      <text x="464" y="340" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">Cape Town: lane point 8 km away</text>
+      <text x="464" y="324" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">Shanghai: lane point 32 km away</text>
+      <text x="464" y="340" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">London: lane point 23 km away</text>
       <text x="464" y="356" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">found with a KD-tree lookup</text>
 
-      <text x="672" y="324" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">59 lane points, 10,986 km</text>
-      <text x="672" y="340" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">passes Gibraltar</text>
-      <text x="672" y="356" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">Northwest Passage closed</text>
+      <text x="672" y="324" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">152 lane points, 19,505 km</text>
+      <text x="672" y="340" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">via Malacca, Bab-el-Mandeb,</text>
+      <text x="672" y="356" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">Suez and Gibraltar</text>
 
       <text x="880" y="324" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">+ origin and destination</text>
-      <text x="880" y="340" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">61 points, 10,997 km</text>
-      <text x="880" y="356" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">247 h at 24 knots</text>
+      <text x="880" y="340" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">154 points, 19,560 km</text>
+      <text x="880" y="356" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">440 h at 24 knots</text>
 
-      <text x="1088" y="324" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">LineString of 61 positions</text>
+      <text x="1088" y="324" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">LineString of 154 positions</text>
       <text x="1088" y="340" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">length · units · duration_hours</text>
-      <text x="1088" y="356" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">1,310 characters of JSON</text>
+      <text x="1088" y="356" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">3,150 characters of JSON</text>
 
       <!-- Legend strip -->
       <line x1="40" y1="404" x2="1240" y2="404" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
