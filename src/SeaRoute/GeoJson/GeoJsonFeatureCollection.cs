@@ -46,6 +46,14 @@ public sealed class MovementProperties
     [JsonPropertyName("total_duration_hours")]
     public double TotalDurationHours { get; set; }
 
+    /// <summary>Sum of port hours across sea legs.</summary>
+    [JsonPropertyName("total_port_hours")]
+    public double TotalPortHours { get; set; }
+
+    /// <summary>Sum of leg transit hours: travelling plus port time.</summary>
+    [JsonPropertyName("total_transit_hours")]
+    public double TotalTransitHours { get; set; }
+
     /// <summary>Number of legs.</summary>
     [JsonPropertyName("legs")]
     public int LegCount { get; set; }

@@ -25,8 +25,14 @@ public sealed class LegResult
     /// <summary>Leg length in the movement's units.</summary>
     public double Length => Feature.Properties.Length;
 
-    /// <summary>Estimated leg duration in hours.</summary>
+    /// <summary>Travelling time in hours: distance divided by the mode's speed.</summary>
     public double DurationHours => Feature.Properties.DurationHours;
+
+    /// <summary>Port time in hours: dwell at each end of a sea leg, zero for road, rail and air.</summary>
+    public double PortHours => Feature.Properties.PortHours ?? 0.0;
+
+    /// <summary>Transit time in hours: travelling plus port time.</summary>
+    public double TransitHours => Feature.Properties.TransitHours ?? DurationHours;
 
     /// <summary>Well-to-wheel CO2e intensity applied, in grams per tonne-kilometre.</summary>
     public double Co2eGramsPerTonneKm => Feature.Properties.Co2eGramsPerTonneKm ?? 0.0;
@@ -64,8 +70,14 @@ public sealed class MovementResult
     /// <summary>Sum of leg lengths.</summary>
     public double TotalLength { get; }
 
-    /// <summary>Sum of leg durations in hours.</summary>
+    /// <summary>Sum of leg travelling hours.</summary>
     public double TotalDurationHours { get; }
+
+    /// <summary>Sum of port hours across sea legs.</summary>
+    public double TotalPortHours { get; }
+
+    /// <summary>Sum of leg transit hours: travelling plus port time.</summary>
+    public double TotalTransitHours { get; }
 
     /// <summary>Length per transport mode.</summary>
     public IReadOnlyDictionary<TransportMode, double> LengthByMode { get; }
@@ -91,6 +103,7 @@ public sealed class MovementResult
 
         double totalLength = 0.0;
         double totalHours = 0.0;
+        double totalPortHours = 0.0;
         double totalCo2ePerTonne = 0.0;
         double totalCo2eKg = 0.0;
         bool anyAbsolute = false;
@@ -99,6 +112,7 @@ public sealed class MovementResult
         {
             totalLength += leg.Length;
             totalHours += leg.DurationHours;
+            totalPortHours += leg.PortHours;
             totalCo2ePerTonne += leg.Co2eKgPerTonne;
             if (leg.Co2eKg.HasValue)
             {
@@ -111,6 +125,8 @@ public sealed class MovementResult
 
         TotalLength = totalLength;
         TotalDurationHours = totalHours;
+        TotalPortHours = totalPortHours;
+        TotalTransitHours = totalHours + totalPortHours;
         LengthByMode = byMode;
         TotalCo2eKgPerTonne = totalCo2ePerTonne;
         TotalCo2eKg = anyAbsolute ? totalCo2eKg : null;
@@ -133,6 +149,8 @@ public sealed class MovementResult
                 TotalLength = TotalLength,
                 Units = Units,
                 TotalDurationHours = TotalDurationHours,
+                TotalPortHours = TotalPortHours,
+                TotalTransitHours = TotalTransitHours,
                 LegCount = Legs.Count,
                 TotalCo2eKgPerTonne = TotalCo2eKgPerTonne,
                 CargoTonnes = CargoTonnes,

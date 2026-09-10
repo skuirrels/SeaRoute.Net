@@ -60,6 +60,16 @@ public sealed class SeaRouteProperties
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? To { get; set; }
 
+    /// <summary>Port time for the leg in hours: dwell at each end of a sea leg, zero for other modes. Movement legs only.</summary>
+    [JsonPropertyName("port_hours")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? PortHours { get; set; }
+
+    /// <summary>Transit time for the leg in hours: <see cref="DurationHours"/> travelling plus <see cref="PortHours"/>. Movement legs only.</summary>
+    [JsonPropertyName("transit_hours")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? TransitHours { get; set; }
+
     /// <summary>Well-to-wheel CO2e intensity applied to the leg, in grams per tonne-kilometre.</summary>
     [JsonPropertyName("co2e_g_per_tonne_km")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

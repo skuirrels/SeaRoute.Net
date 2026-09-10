@@ -22,7 +22,7 @@ stopwatch.Stop();
 
 Print("1. Marseille to Cape Town",
     $"{route.Properties.Length:N1} {route.Properties.Units}, " +
-    $"{route.Properties.DurationHours:N1} h at 24 kn, " +
+    $"{route.Properties.DurationHours:N1} h at 16 kn, " +
     $"{route.Geometry.Coordinates.Count} points, cold start {stopwatch.ElapsedMilliseconds} ms");
 
 // 2. Passage restrictions: avoid Suez, so the route goes round the Cape of Good Hope.
@@ -96,7 +96,7 @@ var londonLane = graph.GetCoordinate(graph.FindNearestNode(london));
 var lanePath = SeaRouter.Calculate(shanghai, london, returnPassages: true);
 var finished = SeaRouter.Calculate(shanghai, london, appendOrigDest: true);
 Print("9. Shanghai to London, step by step",
-    $"request        from 121.47°E 31.23°N to 0.12°W 51.51°N, km, 24 knots{Environment.NewLine}" +
+    $"request        from 121.47°E 31.23°N to 0.12°W 51.51°N, km, 16 knots{Environment.NewLine}" +
     $"   snap           Shanghai lane point {Haversine.Distance(shanghai, shanghaiLane):N1} km away, London lane point {Haversine.Distance(london, londonLane):N1} km away{Environment.NewLine}" +
     $"   shortest path  {lanePath.Geometry.Coordinates.Count} lane points, {lanePath.Properties.Length:N0} km via {PassageNames(lanePath.Properties.TraversedPassages)}{Environment.NewLine}" +
     $"   finished route {finished.Geometry.Coordinates.Count} points, {finished.Properties.Length:N0} km, {finished.Properties.DurationHours:N1} h{Environment.NewLine}" +
@@ -146,15 +146,16 @@ static void PrintMovement(string title, string legs, IReadOnlyDictionary<string,
     foreach (var line in legs.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         Console.WriteLine("   " + line);
     Console.WriteLine();
-    Console.WriteLine($"   {"Leg",-4}{"Kind",-10}{"Mode",-6}{"From",-7}{"To",-7}{"Distance",12}{"Time",9}{"CO2e rate",16}{"CO2e per tonne",16}{"CO2e total",12}{"Basis",8}  Choke points");
-    Console.WriteLine($"   {"",4}{"",10}{"",6}{"",7}{"",7}{"",12}{"",9}{"g per t-km",16}{"kg per t cargo",16}{"kg",12}{"",8}");
+    Console.WriteLine($"   {"Leg",-4}{"Kind",-10}{"Mode",-6}{"From",-7}{"To",-7}{"Distance",12}{"Transit",9}{"CO2e rate",16}{"CO2e per tonne",16}{"CO2e total",12}{"Basis",8}  Choke points");
+    Console.WriteLine($"   {"",4}{"",10}{"",6}{"",7}{"",7}{"",12}{"hours",9}{"g per t-km",16}{"kg per t cargo",16}{"kg",12}{"",8}");
     foreach (var leg in movement.Legs)
     {
         Console.WriteLine(
             $"   {leg.Sequence,-4}{leg.Leg.Kind,-10}{leg.Leg.Mode,-6}{leg.From.Label,-7}{leg.To.Label,-7}" +
-            $"{leg.Length,9:N0} km{leg.DurationHours,7:N1} h{leg.Co2eGramsPerTonneKm,16:N1}{leg.Co2eKgPerTonne,16:N1}{leg.Co2eKg,12:N0}{leg.Co2eBasis,8}  {PassageNames(leg.Feature.Properties.TraversedPassages)}");
+            $"{leg.Length,9:N0} km{leg.TransitHours,9:N1}{leg.Co2eGramsPerTonneKm,16:N1}{leg.Co2eKgPerTonne,16:N1}{leg.Co2eKg,12:N0}{leg.Co2eBasis,8}  {PassageNames(leg.Feature.Properties.TraversedPassages)}");
     }
-    Console.WriteLine($"   {"Total",-34}{movement.TotalLength,9:N0} km{movement.TotalDurationHours,7:N1} h{"",16}{movement.TotalCo2eKgPerTonne,16:N1}{movement.TotalCo2eKg,12:N0}{"",8}  for {movement.CargoTonnes:N0} t of cargo" + (movement.CargoTeu.HasValue ? $" in {movement.CargoTeu:N0} TEU" : ""));
+    Console.WriteLine($"   {"Total",-34}{movement.TotalLength,9:N0} km{movement.TotalTransitHours,9:N1}{"",16}{movement.TotalCo2eKgPerTonne,16:N1}{movement.TotalCo2eKg,12:N0}{"",8}  for {movement.CargoTonnes:N0} t of cargo" + (movement.CargoTeu.HasValue ? $" in {movement.CargoTeu:N0} TEU" : ""));
+    Console.WriteLine($"   Transit        = {movement.TotalDurationHours:N1} h travelling (sea at 16 knots, road 60, rail 80, air 800 km/h) + {movement.TotalPortHours:N0} h in port (24 h at each end of a sea leg) = {movement.TotalTransitHours / 24.0:N1} days");
     Console.WriteLine("   CO2e rate      = grams of CO2e emitted moving 1 tonne 1 km (GLEC well-to-wheel default for the mode)");
     Console.WriteLine("   CO2e per tonne = rate x leg distance: kg of CO2e for each tonne of cargo carried over the leg");
     Console.WriteLine("   CO2e total     = kg of CO2e for this shipment: per tonne x cargo weight, or per container (76 g per TEU-km) on sea legs when a TEU count is given");

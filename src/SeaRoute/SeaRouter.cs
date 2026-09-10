@@ -88,7 +88,7 @@ public static class SeaRouter
         Coordinate origin,
         Coordinate destination,
         DistanceUnit units = DistanceUnit.Km,
-        double speedKnots = 24.0,
+        double speedKnots = 16.0,
         bool appendOrigDest = false,
         IEnumerable<string>? restrictions = null,
         bool includePorts = false,

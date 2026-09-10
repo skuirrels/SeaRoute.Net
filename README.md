@@ -20,7 +20,7 @@ var route = engine.CalculateRoute(
     new SeaRouteOptions { AppendOriginDestination = true });
 
 Console.WriteLine($"{route.Properties.Length:N0} {route.Properties.Units}, {route.Properties.DurationHours:N0} h");
-// 10,997 km, 247 h
+// 10,997 km, 371 h
 ```
 
 ---
@@ -54,7 +54,7 @@ Source: [docs/diagrams/routing-pipeline.svg](docs/diagrams/routing-pipeline.svg)
 2. **Resolve ports** only if `IncludePorts` is set. Each end is swapped for its nearest port from the embedded list of 3,955, optionally limited to container terminals or a country.
 3. **Snap to the lane network.** Each end is matched to the nearest point on Marnet, Eurostat's map of shipping lanes, using a KD-tree. Shanghai's request point is 32 km from its lane point, London's 23 km.
 4. **Find the shortest path** along the lanes with bidirectional Dijkstra, or A* on request. Lane links through a closed canal or strait are skipped; the Northwest Passage is closed by default. Shanghai to London gives 152 lane points over 19,505 km, through Malacca, Bab-el-Mandeb, Suez and Gibraltar.
-5. **Finish the route.** With `AppendOriginDestination` the real endpoints are added, longitudes are unwrapped across the antimeridian, and length and duration are measured: 154 points, 19,560 km, 440 hours at 24 knots.
+5. **Finish the route.** With `AppendOriginDestination` the real endpoints are added, longitudes are unwrapped across the antimeridian, and length and duration are measured: 154 points, 19,560 km, 660 hours at 16 knots.
 6. **Return a GeoJSON Feature**: a LineString for the map plus distance, units, duration, the ports used and the passages traversed.
 
 ### Terms
@@ -109,7 +109,7 @@ Example output for the Persian Gulf to the Caribbean with Suez closed, trimmed f
 |---|---|
 | `length` | Total route length in the requested unit. |
 | `units` | Unit identifier, for example `km`, `naut`, `mi`. |
-| `duration_hours` | Length divided by vessel speed, default 24 knots. |
+| `duration_hours` | Length divided by vessel speed, default 16 knots. |
 | `port_origin`, `port_dest` | Present when routing by port code or with `IncludePorts`. |
 | `traversed_passages` | Present when `ReturnPassages` is set. Lower-case identifiers listed below. |
 
@@ -250,16 +250,18 @@ Codes resolve in this order: a coordinate supplied by the caller, the embedded p
 
 ### Time
 
-`duration_hours` on every route and leg is travelling time only: distance divided by an assumed average speed. It includes no port stops, customs, loading, waiting or schedule effects, so it is a lower bound on transit time.
+`duration_hours` on every route and leg is travelling time: distance divided by an assumed average speed.
 
 | Mode | Default speed | Where to change it |
 |---|---|---|
-| Sea | 24 knots, about 44 km/h | `SeaRouteOptions.SpeedKnots` |
+| Sea | 16 knots, about 30 km/h | `SeaRouteOptions.SpeedKnots` |
 | Road | 60 km/h | `MovementRequest.SpeedsKmh[TransportMode.Road]` |
 | Rail | 80 km/h | `MovementRequest.SpeedsKmh[TransportMode.Rail]` |
 | Air | 800 km/h | `MovementRequest.SpeedsKmh[TransportMode.Air]` |
 
-Movement totals add the leg times together.
+The sea default is a slow-steaming service speed rather than a design speed: Clarksons measured the container fleet averaging 13.7 knots in 2023 ([Splash247](https://splash247.com/containerships-moving-at-all-time-low-speeds/)), and Asia to Europe services run at 16 to 20 knots ([Wikipedia, slow steaming](https://en.wikipedia.org/wiki/Slow_steaming)). Earlier versions used 24 knots and under-estimated transit by about half.
+
+Movement legs also carry `port_hours` and `transit_hours`. Every sea leg is charged `MovementRequest.PortDwellHours` at each end, 24 hours by default, covering loading, discharge and transhipment, so a transhipment between two sea legs costs 48 hours. `transit_hours` is travelling plus port time, and the collection carries `total_port_hours` and `total_transit_hours`. Set `PortDwellHours` to 0 for pure steaming time. Customs, waiting for a sailing and schedule effects are still not included, so treat transit as a lower bound: UK to Melbourne via Singapore comes out at about 36 days against the 38 to 50 quoted by forwarders ([Shipa Freight](https://www.shipafreight.com/tradelane/uk-to-australia/)), and Felixstowe to Singapore at about 24 days against a scheduled 29 with intermediate port calls ([Fluent Cargo](https://www.fluentcargo.com/routes/singapore/united-kingdom)).
 
 ### Emissions
 
@@ -295,7 +297,7 @@ Source: Smart Freight Centre, [GLEC Framework, July 2022 edition](https://smart-
 | `SeaRouteOptions` | Default | Description |
 |---|---|---|
 | `Units` | `Km` | `Km`, `Meters`, `Miles`, `Feet`, `Inches`, `Yards`, `NauticalMiles`, `Degrees`, `Radians`, `Centimeters`. |
-| `SpeedKnots` | `24` | Vessel speed used for `duration_hours`. |
+| `SpeedKnots` | `16` | Vessel speed used for `duration_hours`. A typical slow-steaming service speed; the fleet averaged under 14 knots in 2023. |
 | `AppendOriginDestination` | `false` | Prepend the exact origin and append the exact destination to the line. |
 | `Restrictions` | `[Northwest]` | Passages whose edges are excluded from the search. |
 | `IncludePorts` | `false` | Route from and to the nearest ports instead of the raw points. |

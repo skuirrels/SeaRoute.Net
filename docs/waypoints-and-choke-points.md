@@ -8,7 +8,7 @@ SeaRoute.Net routes one transport mode, deep-sea shipping on the Eurostat Marnet
 
 | Mode | Routed | Network | Leg geometry | Duration basis | Choke points |
 |---|---|---|---|---|---|
-| Sea | Yes | Marnet, 9,708 nodes, 31,940 directed edges | Network path | `SpeedKnots`, default 24 | 13 tagged passages, listed in section 3 |
+| Sea | Yes | Marnet, 9,708 nodes, 31,940 directed edges | Network path | `SpeedKnots`, default 16, plus 24 h port dwell per leg end in movements | 13 tagged passages, listed in section 3 |
 | Road | No | None | Straight line, 2 points | `SpeedsKmh[Road]`, default 60 | None |
 | Rail | No | None | Straight line, 2 points | `SpeedsKmh[Rail]`, default 80 | None |
 | Air | No | None | Straight line, 2 points | `SpeedsKmh[Air]`, default 800 | None |
@@ -135,7 +135,7 @@ Locations are the bounding box of the tagged edges in the dataset. Detours were 
 
 ### 3.3 Notes on each choke point
 
-**Suez Canal (`suez`).** A sea-level canal of about 190 km between Port Said and Suez, with no locks. It is the shortest link between Europe and Asia; closing it in the model sends Singapore to Rotterdam traffic round the Cape of Good Hope, adding roughly 6,500 km, which at 24 knots is about six extra days. The tagged edges also cover the Gulf of Suez approaches, which is why the tagged length exceeds the canal itself.
+**Suez Canal (`suez`).** A sea-level canal of about 190 km between Port Said and Suez, with no locks. It is the shortest link between Europe and Asia; closing it in the model sends Singapore to Rotterdam traffic round the Cape of Good Hope, adding roughly 6,500 km, which at 16 knots is about nine extra days. The tagged edges also cover the Gulf of Suez approaches, which is why the tagged length exceeds the canal itself.
 
 **Panama Canal (`panama`).** About 80 km of locks and lakes between the Caribbean and the Pacific. Vessel size is limited by the Neopanamax locks. Closing it in the model reroutes Shanghai to New York eastabout through Malacca and Suez rather than round Cape Horn, because that is shorter on this network.
 

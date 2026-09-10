@@ -19,8 +19,11 @@ public sealed class SeaRouteOptions
         set => Units = DistanceUnitExtensions.Parse(value);
     }
 
-    /// <summary>Vessel speed in knots (nautical miles per hour). Default is 24 knots.</summary>
-    public double SpeedKnots { get; set; } = 24.0;
+    /// <summary>
+    /// Vessel speed in knots (nautical miles per hour). Default is 16 knots, a typical slow-steaming service speed;
+    /// the container fleet averaged under 14 knots in 2023 and design speeds of 22 to 25 knots are rarely used.
+    /// </summary>
+    public double SpeedKnots { get; set; } = 16.0;
 
     /// <summary>
     /// Whether to explicitly prepend the origin and append the destination coordinates to the route LineString.

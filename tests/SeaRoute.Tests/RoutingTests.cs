@@ -52,12 +52,12 @@ public class RoutingTests
         var routeMiles = SeaRouter.Calculate(origin, dest, units: DistanceUnit.Miles, appendOrigDest: false);
         routeMiles.Properties.Units.Should().Be("mi");
         routeMiles.Properties.Length.Should().BeApproximately(6826.70, 1.0);
-        routeMiles.Properties.DurationHours.Should().BeApproximately(247.18, 0.5);
+        routeMiles.Properties.DurationHours.Should().BeApproximately(370.77, 0.5);
 
         var routeNaut = SeaRouter.Calculate(origin, dest, units: DistanceUnit.NauticalMiles, appendOrigDest: false);
         routeNaut.Properties.Units.Should().Be("naut");
         routeNaut.Properties.Length.Should().BeApproximately(5932.24, 1.0);
-        routeNaut.Properties.DurationHours.Should().BeApproximately(247.18, 0.5);
+        routeNaut.Properties.DurationHours.Should().BeApproximately(370.77, 0.5);
     }
 
     [Fact]

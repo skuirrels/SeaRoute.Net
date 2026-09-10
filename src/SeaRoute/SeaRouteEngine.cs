@@ -219,6 +219,8 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
             feature.Properties.Kind = leg.Kind.ToWireString();
             feature.Properties.From = from.Label;
             feature.Properties.To = to.Label;
+            feature.Properties.PortHours = leg.Mode == TransportMode.Sea ? 2.0 * request.PortDwellHours : 0.0;
+            feature.Properties.TransitHours = feature.Properties.DurationHours + feature.Properties.PortHours;
             ApplyEmissions(feature, leg.Mode, units, request);
 
             legResults.Add(new LegResult(sequence, leg, from, to, feature));

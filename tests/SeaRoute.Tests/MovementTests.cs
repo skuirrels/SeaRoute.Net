@@ -462,6 +462,41 @@ public class MovementTests
         result.TotalCo2eKg.Should().NotBeNull();
     }
 
+    [Fact]
+    public void Time_SeaLegsAddPortDwellAtEachEnd_AndDefaultSpeedIsSixteenKnots()
+    {
+        var result = SeaRouter.CalculateMovement(MelbourneMovement, ExtraPlaces);
+
+        var road = result.Legs[0];
+        road.PortHours.Should().Be(0.0);
+        road.TransitHours.Should().Be(road.DurationHours);
+
+        var sea = result.Legs[1];
+        sea.PortHours.Should().Be(48.0, "24 h at each end of a sea leg");
+        sea.TransitHours.Should().BeApproximately(sea.DurationHours + 48.0, 1e-9);
+        sea.DurationHours.Should().BeApproximately(sea.Length / (16.0 * 1.852), 1e-6, "steaming at 16 knots");
+
+        result.TotalPortHours.Should().Be(3 * 48.0);
+        result.TotalTransitHours.Should().BeApproximately(result.TotalDurationHours + result.TotalPortHours, 1e-9);
+        // UK to Melbourne via Singapore should land inside the 38 to 50 day range quoted by forwarders.
+        (result.TotalTransitHours / 24.0).Should().BeInRange(30.0, 50.0);
+
+        using var doc = JsonDocument.Parse(result.ToJson());
+        doc.RootElement.GetProperty("features")[1].GetProperty("properties").GetProperty("port_hours").GetDouble().Should().Be(48.0);
+        doc.RootElement.GetProperty("properties").GetProperty("total_transit_hours").GetDouble().Should().BeApproximately(result.TotalTransitHours, 1e-9);
+    }
+
+    [Fact]
+    public void Time_PortDwellCanBeSwitchedOff()
+    {
+        var request = new MovementRequest { Legs = MovementParser.Parse("Port GBFXT to Port SGSIN Sea"), PortDwellHours = 0.0 };
+
+        var result = SeaRouteEngine.Default.CalculateMovement(request);
+
+        result.Legs[0].PortHours.Should().Be(0.0);
+        result.TotalTransitHours.Should().Be(result.TotalDurationHours);
+    }
+
     private sealed class CountingResolver(params (string Code, Coordinate Coordinate)[] entries) : ILocationResolver
     {
         public int Calls { get; private set; }

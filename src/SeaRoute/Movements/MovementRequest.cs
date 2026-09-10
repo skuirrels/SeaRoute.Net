@@ -50,6 +50,12 @@ public sealed class MovementRequest
     public double? CargoTeu { get; set; }
 
     /// <summary>
+    /// Hours spent in port at each end of every sea leg, covering loading, discharge and transhipment dwell.
+    /// Default 24, so a transhipment between two sea legs costs 48 hours. Set to 0 for pure steaming time.
+    /// </summary>
+    public double PortDwellHours { get; set; } = 24.0;
+
+    /// <summary>
     /// Assumed average speed in kilometres per hour for each non-sea mode, used to estimate leg duration.
     /// Defaults: Road 60, Rail 80, Air 800. Sea speed comes from <see cref="SeaOptions"/>.
     /// </summary>
