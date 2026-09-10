@@ -248,6 +248,19 @@ Each leg feature carries `leg`, `mode`, `kind`, `from` and `to` in its propertie
 
 Codes resolve in this order: a coordinate supplied by the caller, the embedded port list, then an `ILocationResolver` if one is set. Check that the embedded list agrees with your code conventions before relying on it. Carriers use `CNSHG` for the Port of Shanghai and `CNSHA` for Hongqiao airport, but the embedded list holds `CNSHG` as Sanshan, an inland Yangtze port, and puts Shanghai's seaport under `CNSHA`. Supplying a coordinate for a code overrides the list, as the tests do for `CNSHG`. An unknown code with no coordinate throws an `ArgumentException` naming the code rather than guessing.
 
+### Time
+
+`duration_hours` on every route and leg is travelling time only: distance divided by an assumed average speed. It includes no port stops, customs, loading, waiting or schedule effects, so it is a lower bound on transit time.
+
+| Mode | Default speed | Where to change it |
+|---|---|---|
+| Sea | 24 knots, about 44 km/h | `SeaRouteOptions.SpeedKnots` |
+| Road | 60 km/h | `MovementRequest.SpeedsKmh[TransportMode.Road]` |
+| Rail | 80 km/h | `MovementRequest.SpeedsKmh[TransportMode.Rail]` |
+| Air | 800 km/h | `MovementRequest.SpeedsKmh[TransportMode.Air]` |
+
+Movement totals add the leg times together.
+
 ### Emissions
 
 Every movement leg carries a well-to-wheel CO2e estimate, and the totals add them up. The figures are intensity-based: grams of CO2e per tonne of cargo per kilometre, from the GLEC Framework defaults that ISO 14083 builds on. Pass `cargoTonnes` to get absolute kilograms as well.
