@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>SeaRoute.Net</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>eDC team</Authors>
+    <Description>High-performance .NET maritime shortest-path routing library based on Eurostat marnet data.</Description>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageTags>maritime;searoute;routing;geospatial;ports;geojson;dijkstra;eurostat</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Data\*.gz" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,25 @@
+# Build output
+bin/
+obj/
+*.nupkg
+*.snupkg
+
+# BenchmarkDotNet
+BenchmarkDotNet.Artifacts/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.swp
+.DS_Store
+
+# Test results
+TestResults/
+*.trx
+
+# Stray dotnet/NuGet first-use sentinels from sandboxed runs
+Library/
+.local/
