@@ -146,17 +146,18 @@ static void PrintMovement(string title, string legs, IReadOnlyDictionary<string,
     foreach (var line in legs.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         Console.WriteLine("   " + line);
     Console.WriteLine();
-    Console.WriteLine($"   {"Leg",-4}{"Kind",-10}{"Mode",-6}{"From",-7}{"To",-7}{"Distance",12}{"Time",9}{"CO2e rate",12}{"Per tonne",12}{"Shipment",10}{"Basis",8}  Choke points");
-    Console.WriteLine($"   {"",4}{"",10}{"",6}{"",7}{"",7}{"",12}{"",9}{"g/t-km",12}{"kg",12}{"kg",10}{"",8}");
+    Console.WriteLine($"   {"Leg",-4}{"Kind",-10}{"Mode",-6}{"From",-7}{"To",-7}{"Distance",12}{"Time",9}{"CO2e rate",16}{"CO2e per tonne",16}{"CO2e total",12}{"Basis",8}  Choke points");
+    Console.WriteLine($"   {"",4}{"",10}{"",6}{"",7}{"",7}{"",12}{"",9}{"g per t-km",16}{"kg per t cargo",16}{"kg",12}{"",8}");
     foreach (var leg in movement.Legs)
     {
         Console.WriteLine(
             $"   {leg.Sequence,-4}{leg.Leg.Kind,-10}{leg.Leg.Mode,-6}{leg.From.Label,-7}{leg.To.Label,-7}" +
-            $"{leg.Length,9:N0} km{leg.DurationHours,7:N1} h{leg.Co2eGramsPerTonneKm,12:N1}{leg.Co2eKgPerTonne,12:N1}{leg.Co2eKg,10:N0}{leg.Co2eBasis,8}  {PassageNames(leg.Feature.Properties.TraversedPassages)}");
+            $"{leg.Length,9:N0} km{leg.DurationHours,7:N1} h{leg.Co2eGramsPerTonneKm,16:N1}{leg.Co2eKgPerTonne,16:N1}{leg.Co2eKg,12:N0}{leg.Co2eBasis,8}  {PassageNames(leg.Feature.Properties.TraversedPassages)}");
     }
-    Console.WriteLine($"   {"Total",-34}{movement.TotalLength,9:N0} km{movement.TotalDurationHours,7:N1} h{"",12}{movement.TotalCo2eKgPerTonne,12:N1}{movement.TotalCo2eKg,10:N0}{"",8}  for {movement.CargoTonnes:N0} t of cargo" + (movement.CargoTeu.HasValue ? $" in {movement.CargoTeu:N0} TEU" : ""));
-    Console.WriteLine("   CO2e rate: grams of CO2e to move 1 tonne 1 km, well-to-wheel, GLEC defaults. Per tonne: rate x distance, kg for 1 tonne over the leg.");
-    Console.WriteLine("   Shipment: per tonne x your cargo weight, or per container at 76 g per TEU-km for sea legs when a TEU count is given.");
+    Console.WriteLine($"   {"Total",-34}{movement.TotalLength,9:N0} km{movement.TotalDurationHours,7:N1} h{"",16}{movement.TotalCo2eKgPerTonne,16:N1}{movement.TotalCo2eKg,12:N0}{"",8}  for {movement.CargoTonnes:N0} t of cargo" + (movement.CargoTeu.HasValue ? $" in {movement.CargoTeu:N0} TEU" : ""));
+    Console.WriteLine("   CO2e rate      = grams of CO2e emitted moving 1 tonne 1 km (GLEC well-to-wheel default for the mode)");
+    Console.WriteLine("   CO2e per tonne = rate x leg distance: kg of CO2e for each tonne of cargo carried over the leg");
+    Console.WriteLine("   CO2e total     = kg of CO2e for this shipment: per tonne x cargo weight, or per container (76 g per TEU-km) on sea legs when a TEU count is given");
 }
 
 static string PassageNames(IReadOnlyList<string>? tags)
