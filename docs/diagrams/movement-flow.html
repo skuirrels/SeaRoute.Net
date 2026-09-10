@@ -53,9 +53,9 @@
     <p class="eyebrow">Flowchart · SeaRoute.Net</p>
     <h1>How a multi-leg movement is routed</h1>
 
-    <svg viewBox="0 0 1200 880" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="movement-flow-title movement-flow-desc">
+    <svg viewBox="0 0 1200 1024" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="movement-flow-title movement-flow-desc">
       <title id="movement-flow-title">SeaRoute.Net movement flow</title>
-      <desc id="movement-flow-desc">Flowchart showing leg lines parsed into legs, each leg's locations resolved, sea legs routed on the Marnet network and road, rail or air legs measured as straight lines, each producing a leg feature, looping until all legs are done and returning a GeoJSON FeatureCollection with totals.</desc>
+      <desc id="movement-flow-desc">Flowchart showing leg lines parsed into legs, each leg's locations resolved, sea legs routed on the Marnet network and road, rail or air legs measured as straight great-circle lines with no lane points or choke points, each producing a leg feature, looping until all legs are done and returning a GeoJSON FeatureCollection with totals. A strip below shows a movement with an air leg from Heathrow to Melbourne.</desc>
       <defs>
         <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#5b6472"/></marker>
         <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#0a34a1"/></marker>
@@ -127,7 +127,7 @@
       <rect x="160" y="356" width="200" height="56" rx="6" fill="#f6f7f8"/>
       <rect x="160" y="356" width="200" height="56" rx="6" fill="#ffffff" stroke="#181818" stroke-width="1"/>
       <text x="260" y="382" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Straight great-circle leg</text>
-      <text x="260" y="398" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">haversine · speed per mode</text>
+      <text x="260" y="398" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">road 60 · rail 80 · air 800 km/h</text>
 
       <!-- Merge point -->
       <circle cx="600" cy="472" r="4" fill="#181818"/>
@@ -149,19 +149,33 @@
       <text x="600" y="742" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">FeatureCollection</text>
       <text x="600" y="756" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">totals · length by mode</text>
 
+      <!-- Worked example: a movement with an air leg -->
+      <line x1="40" y1="800" x2="1160" y2="800" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
+      <text x="40" y="820" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">WORKED EXAMPLE · A MOVEMENT WITH AN AIR LEG</text>
+      <text x="40" y="844" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">Pickup GBLGW to Airport GBLHR Road</text>
+      <text x="40" y="860" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">Airport GBLHR to Airport AUMEL Air</text>
+      <text x="40" y="876" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">Delivery from airport AUMEL to place AUMRS Road</text>
+      <text x="40" y="900" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">GBLGW, GBLHR and AUMRS are given coordinates;</text>
+      <text x="40" y="916" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">AUMEL comes from the port list</text>
+      <text x="480" y="844" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Leg  Kind      Mode  From   To      Distance    Time  Choke points</text>
+      <text x="480" y="860" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">1    Pickup    Road  GBLGW  GBLHR      40 km   0.7 h  none, straight line</text>
+      <text x="480" y="876" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">2    Main      Air   GBLHR  AUMEL  16,927 km  21.2 h  none, straight great-circle line, no lane points</text>
+      <text x="480" y="892" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">3    Delivery  Road  AUMEL  AUMRS      19 km   0.3 h  none, straight line</text>
+      <text x="480" y="916" fill="#181818" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" xml:space="preserve">Total                              16,986 km  22.1 h</text>
+
       <!-- Legend strip -->
-      <line x1="40" y1="816" x2="1160" y2="816" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
-      <text x="40" y="840" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
-      <rect x="128" y="828" width="24" height="12" rx="6" fill="rgba(91,100,114,0.10)" stroke="#6c7484" stroke-width="1"/>
-      <text x="160" y="840" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">START · END</text>
-      <rect x="264" y="828" width="16" height="12" rx="2" fill="#ffffff" stroke="#181818" stroke-width="1"/>
-      <text x="288" y="840" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">STEP</text>
-      <polygon points="372,828 384,834 372,840 360,834" fill="#ffffff" stroke="#181818" stroke-width="1"/>
-      <text x="392" y="840" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">DECISION</text>
-      <rect x="480" y="828" width="16" height="12" rx="2" fill="rgba(10,52,161,0.08)" stroke="#0a34a1" stroke-width="1"/>
-      <text x="504" y="840" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">ROUTED ON THE NETWORK</text>
-      <circle cx="672" cy="834" r="4" fill="#181818"/>
-      <text x="684" y="840" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">MERGE</text>
+      <line x1="40" y1="960" x2="1160" y2="960" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
+      <text x="40" y="984" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
+      <rect x="128" y="972" width="24" height="12" rx="6" fill="rgba(91,100,114,0.10)" stroke="#6c7484" stroke-width="1"/>
+      <text x="160" y="984" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">START · END</text>
+      <rect x="264" y="972" width="16" height="12" rx="2" fill="#ffffff" stroke="#181818" stroke-width="1"/>
+      <text x="288" y="984" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">STEP</text>
+      <polygon points="372,972 384,978 372,984 360,978" fill="#ffffff" stroke="#181818" stroke-width="1"/>
+      <text x="392" y="984" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">DECISION</text>
+      <rect x="480" y="972" width="16" height="12" rx="2" fill="rgba(10,52,161,0.08)" stroke="#0a34a1" stroke-width="1"/>
+      <text x="504" y="984" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">ROUTED ON THE NETWORK</text>
+      <circle cx="672" cy="978" r="4" fill="#181818"/>
+      <text x="684" y="984" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">MERGE</text>
     </svg>
   </div>
 </body>

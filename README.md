@@ -213,7 +213,7 @@ var routes = SeaRouteEngine.Default.CalculateRoutes(brussels, tokyo, new SeaRout
 A movement is a list of legs, one per line, in the form `[Pickup|Delivery] [port|place|airport|station|terminal|depot] CODE to [...] CODE MODE`, where MODE is Sea, Road, Rail or Air. Sea legs are routed on the lane network. Road, rail and air legs are straight great-circle lines between their two waypoints, never touching lane points or choke points, with a configurable speed per mode: 60, 80 and 800 km/h by default.
 
 <p align="center">
-  <img src="docs/diagrams/movement-flow.png" alt="SeaRoute.Net movement flow: leg lines are parsed, each leg's locations resolved, sea legs routed on Marnet and road, rail or air legs measured as straight lines, producing one feature per leg and a FeatureCollection with totals" width="70%">
+  <img src="docs/diagrams/movement-flow.png" alt="SeaRoute.Net movement flow: leg lines are parsed, each leg's locations resolved, sea legs routed on Marnet and road, rail or air legs measured as straight great-circle lines with no lane points or choke points, producing one feature per leg and a FeatureCollection with totals; a strip shows a movement with an air leg from Heathrow to Melbourne" width="70%">
 </p>
 
 Source: [docs/diagrams/movement-flow.svg](docs/diagrams/movement-flow.svg) (vector) and [movement-flow.html](docs/diagrams/movement-flow.html).
