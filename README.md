@@ -20,6 +20,54 @@ Console.WriteLine($"{route.Properties.Length:N0} {route.Properties.Units}, {rout
 // 10,997 km, 371 h
 ```
 
+### Complete multi-leg movement
+
+This end-to-end example routes pickup, two sea legs and final delivery using UN/LOCODEs throughout. It calculates travelling and port time, applies the built-in well-to-wheel emission factors to a 12-tonne load in one 40-foot container, reports each leg and writes the complete GeoJSON `FeatureCollection`.
+
+```csharp
+using System;
+using System.IO;
+using SeaRoute;
+
+const string legs = """
+    Pickup GBLGW to Port GBFXT Road
+    Port GBFXT to Port SGSIN Sea
+    Port SGSIN to Port AUMEL Sea
+    Delivery from port AUMEL to place AUMRS Road
+    """;
+
+var movement = SeaRouter.CalculateMovement(
+    legs,
+    seaOptions: new SeaRouteOptions { ReturnPassages = true },
+    cargoTonnes: 12.0,
+    cargoTeu: 2.0); // One 40-foot container
+
+foreach (var leg in movement.Legs)
+{
+    var chokePoints = string.Join(
+        ", ",
+        leg.Feature.Properties.TraversedPassages ?? Array.Empty<string>());
+
+    Console.WriteLine(
+        $"{leg.Sequence}. {leg.Leg.Kind} {leg.Leg.Mode}: " +
+        $"{leg.From.Label} to {leg.To.Label}, " +
+        $"{leg.Length:N0} {movement.Units}, " +
+        $"{leg.TransitHours:N1} h, " +
+        $"{leg.Co2eKg:N0} kg CO2e" +
+        (chokePoints.Length == 0 ? "" : $", via {chokePoints}"));
+}
+
+Console.WriteLine(
+    $"Total: {movement.TotalLength:N0} {movement.Units}, " +
+    $"{movement.TotalTransitHours:N1} h " +
+    $"({movement.TotalTransitHours / 24.0:N1} days), " +
+    $"{movement.TotalCo2eKg:N0} kg CO2e");
+
+File.WriteAllText("movement.geojson", movement.ToJson(writeIndented: true));
+```
+
+This produces four joined leg features totalling about 23,670 km and 36.6 days with the default speeds and port dwell. The sea legs report their traversed choke points, and `movement.geojson` contains the full result for mapping or downstream processing.
+
 ---
 
 ## Contents
