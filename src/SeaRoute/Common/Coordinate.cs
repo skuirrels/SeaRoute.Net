@@ -50,5 +50,6 @@ public readonly record struct Coordinate(double Longitude, double Latitude)
     public static Coordinate FromTuple((double lon, double lat) tuple) => new(tuple.lon, tuple.lat);
 
     /// <inheritdoc />
-    public override string ToString() => $"[{Longitude:F6}, {Latitude:F6}]";
+    public override string ToString() =>
+        $"[{Longitude.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)}, {Latitude.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)}]";
 }

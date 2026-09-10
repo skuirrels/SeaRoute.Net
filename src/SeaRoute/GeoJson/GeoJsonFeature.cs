@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace SeaRoute.GeoJson;
@@ -20,24 +19,10 @@ public sealed class GeoJsonFeature
     [JsonPropertyName("properties")]
     public SeaRouteProperties Properties { get; init; } = new();
 
-    private static readonly JsonSerializerOptions CompactOptions = new()
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
-    private static readonly JsonSerializerOptions IndentedOptions = new()
-    {
-        WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     /// <summary>
     /// Serializes this feature to a GeoJSON string.
     /// </summary>
-    public string ToJson(bool writeIndented = false)
-    {
-        return JsonSerializer.Serialize(this, writeIndented ? IndentedOptions : CompactOptions);
-    }
+    public string ToJson(bool writeIndented = false) => GeoJsonSerializer.Serialize(this, writeIndented);
 
     /// <inheritdoc />
     public override string ToString() => ToJson(false);

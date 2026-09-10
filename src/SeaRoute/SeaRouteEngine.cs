@@ -2,6 +2,7 @@ using SeaRoute.Common;
 using SeaRoute.Data;
 using SeaRoute.GeoJson;
 using SeaRoute.Graph;
+using SeaRoute.Movements;
 using SeaRoute.Passages;
 using SeaRoute.Ports;
 
@@ -135,7 +136,11 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
             }
             else
             {
-                routeCoords = shortestPath; // freshly allocated per query, safe to take ownership
+                // A one-node path means both endpoints snap to the same network node. Emit a straight line
+                // between the routed endpoints so the LineString always has two positions and a real length.
+                routeCoords = shortestPath.Count == 1
+                    ? [routedOrigin, routedDest]
+                    : shortestPath; // freshly allocated per query, safe to take ownership
 
                 if (includePorts && routeCoords.Count > 0)
                 {
@@ -179,5 +184,134 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
         }
 
         return results;
+    }
+
+    /// <inheritdoc />
+    public MovementResult CalculateMovement(MovementRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.Legs.Count == 0)
+            throw new ArgumentException("A movement needs at least one leg.", nameof(request));
+        if (request.SpeedsKmh.ContainsKey(TransportMode.Sea))
+            throw new ArgumentException("Sea speed is taken from SeaOptions.SpeedKnots; remove the Sea entry from SpeedsKmh.", nameof(request));
+
+        // Movement legs always include their resolved endpoints so consecutive legs join end to end.
+        var seaOptions = (request.SeaOptions ?? new SeaRouteOptions()).Clone();
+        seaOptions.AppendOriginDestination = true;
+        var units = seaOptions.Units;
+
+        var resolvedByCode = new Dictionary<string, ResolvedLocation>(StringComparer.OrdinalIgnoreCase);
+        var legResults = new List<LegResult>(request.Legs.Count);
+
+        for (int i = 0; i < request.Legs.Count; i++)
+        {
+            var leg = request.Legs[i];
+            int sequence = i + 1;
+            var from = ResolveLocation(leg.From, request, resolvedByCode);
+            var to = ResolveLocation(leg.To, request, resolvedByCode);
+
+            var feature = leg.Mode == TransportMode.Sea
+                ? CalculateSeaLeg(sequence, leg, from, to, seaOptions)
+                : CalculateStraightLeg(from, to, leg.Mode, units, request.SpeedsKmh);
+
+            feature.Properties.Leg = sequence;
+            feature.Properties.Mode = leg.Mode.ToWireString();
+            feature.Properties.Kind = leg.Kind.ToWireString();
+            feature.Properties.From = from.Label;
+            feature.Properties.To = to.Label;
+
+            legResults.Add(new LegResult(sequence, leg, from, to, feature));
+        }
+
+        return new MovementResult(legResults, units.ToUnitString());
+    }
+
+    private GeoJsonFeature CalculateSeaLeg(int sequence, MovementLeg leg, ResolvedLocation from, ResolvedLocation to, SeaRouteOptions options)
+    {
+        var feature = CalculateRoute(from.Coordinate, to.Coordinate, options);
+
+        if (feature.Geometry.Coordinates.Count < 2)
+        {
+            throw new InvalidOperationException(
+                $"Leg {sequence} ({leg}) has no sea route between {from.Label} and {to.Label} under the current passage restrictions.");
+        }
+
+        feature.Properties.PortOrigin ??= from.Port;
+        feature.Properties.PortDest ??= to.Port;
+        return feature;
+    }
+
+    private static GeoJsonFeature CalculateStraightLeg(
+        ResolvedLocation from,
+        ResolvedLocation to,
+        TransportMode mode,
+        DistanceUnit units,
+        IReadOnlyDictionary<TransportMode, double> speedsKmh)
+    {
+        if (!speedsKmh.TryGetValue(mode, out double speedKmh) || speedKmh <= 0)
+            throw new ArgumentException($"No positive speed configured for mode {mode}. Set MovementRequest.SpeedsKmh[{mode}].");
+
+        var coords = RouteNormalizer.NormalizeRoute([from.Coordinate, to.Coordinate]);
+        double length = Haversine.CalculatePathLength(coords, units);
+
+        // Reuse the sea-leg duration helper by expressing the road speed in knots.
+        double speedKnots = speedKmh / DistanceUnit.Km.GetSpeedCoefficient();
+
+        return new GeoJsonFeature
+        {
+            Geometry = GeoJsonLineString.FromCoordinates(coords),
+            Properties = new SeaRouteProperties
+            {
+                Length = length,
+                Units = units.ToUnitString(),
+                DurationHours = Haversine.CalculateDurationHours(speedKnots, length, units),
+                PortOrigin = from.Port,
+                PortDest = to.Port
+            }
+        };
+    }
+
+    private ResolvedLocation ResolveLocation(
+        Location location,
+        MovementRequest request,
+        Dictionary<string, ResolvedLocation> resolvedByCode)
+    {
+        bool cacheable = location.Code != null && !location.Coordinate.HasValue;
+        if (cacheable && resolvedByCode.TryGetValue(location.Code!, out var cached))
+            return cached;
+
+        var resolved = ResolveUncached(location, request);
+        resolved.Coordinate.Validate();
+
+        if (cacheable)
+            resolvedByCode[location.Code!] = resolved;
+
+        return resolved;
+    }
+
+    /// <summary>
+    /// Resolution order: explicit coordinate on the location, then <see cref="MovementRequest.Coordinates"/>,
+    /// then the embedded port database, then <see cref="MovementRequest.Resolver"/>.
+    /// </summary>
+    private ResolvedLocation ResolveUncached(Location location, MovementRequest request)
+    {
+        Port? port = location.Code != null ? Ports.GetByCode(location.Code) : null;
+
+        if (location.Coordinate.HasValue)
+            return new ResolvedLocation(location.Code, location.Name ?? port?.Name, location.Coordinate.Value, port);
+
+        string code = location.Code!;
+
+        if (request.Coordinates.TryGetValue(code, out var overridden))
+            return new ResolvedLocation(code, port?.Name, overridden, port);
+
+        if (port != null)
+            return new ResolvedLocation(code, port.Name, port.Coordinate, port);
+
+        if (request.Resolver != null && request.Resolver.TryResolve(code, out var fromResolver, out var name))
+            return new ResolvedLocation(code, name, fromResolver, null);
+
+        throw new ArgumentException(
+            $"Location '{code}' is not in the embedded port database. Add its coordinate to MovementRequest.Coordinates or supply an ILocationResolver.");
     }
 }

@@ -34,4 +34,29 @@ public sealed class SeaRouteProperties
     [JsonPropertyName("traversed_passages")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? TraversedPassages { get; set; }
+
+    /// <summary>1-based leg number when the feature is part of a multi-leg movement.</summary>
+    [JsonPropertyName("leg")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Leg { get; set; }
+
+    /// <summary>Transport mode of the leg: "sea", "road", "rail" or "air".</summary>
+    [JsonPropertyName("mode")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Mode { get; set; }
+
+    /// <summary>Role of the leg: "main", "pickup" or "delivery".</summary>
+    [JsonPropertyName("kind")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Kind { get; set; }
+
+    /// <summary>Code or name of the leg's start location.</summary>
+    [JsonPropertyName("from")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? From { get; set; }
+
+    /// <summary>Code or name of the leg's end location.</summary>
+    [JsonPropertyName("to")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? To { get; set; }
 }

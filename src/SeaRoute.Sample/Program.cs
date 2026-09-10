@@ -87,6 +87,25 @@ Print("7. Brussels to Tokyo with weighted preferred ports",
 string geoJson = route.ToJson(writeIndented: printGeoJson);
 Print("8. GeoJSON", printGeoJson ? Environment.NewLine + geoJson : $"{geoJson.Length:N0} characters, first 100: {geoJson[..100]}...");
 
+// 9. Multi-leg movement: one leg per line. Sea legs are routed; road, rail and air legs are straight lines.
+//    Codes that are not in the embedded port list (here Gatwick and a placeholder near Melbourne) need coordinates.
+const string legs = """
+    Pickup GBLGW to Port GBFXT Road
+    Port GBFXT to Port SGSIN Sea
+    Port SGSIN to Port AUMEL Sea
+    Delivery from port AUMEL to place AUMRS Sea
+    """;
+var places = new Dictionary<string, Coordinate>(StringComparer.OrdinalIgnoreCase)
+{
+    ["GBLGW"] = new(-0.190278, 51.148056),
+    ["AUMRS"] = new(145.13, -37.92)
+};
+var movement = SeaRouter.CalculateMovement(legs, places);
+Print("9. Multi-leg movement Gatwick to Melbourne",
+    string.Join(Environment.NewLine + "   ", movement.Legs.Select(l =>
+        $"leg {l.Sequence} {l.Leg.Kind,-8} {l.Leg.Mode,-4} {l.From.Label} -> {l.To.Label}: {l.Length,9:N0} km, {l.DurationHours,6:N1} h"))
+    + Environment.NewLine + $"   total {movement.TotalLength:N0} km, {movement.TotalDurationHours:N1} h; GeoJSON FeatureCollection {movement.ToJson().Length:N0} chars");
+
 static void Print(string title, string detail)
 {
     Console.WriteLine();

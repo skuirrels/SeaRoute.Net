@@ -48,4 +48,19 @@ public sealed class SeaRouteOptions
 
     /// <summary>Pathfinding algorithm: "dijkstra" (default) or "astar".</summary>
     public string Algorithm { get; set; } = "dijkstra";
+
+    /// <summary>
+    /// Returns a copy of these options with an independent restriction set.
+    /// </summary>
+    public SeaRouteOptions Clone() => new()
+    {
+        Units = Units,
+        SpeedKnots = SpeedKnots,
+        AppendOriginDestination = AppendOriginDestination,
+        Restrictions = new HashSet<string>(Restrictions, StringComparer.OrdinalIgnoreCase),
+        IncludePorts = IncludePorts,
+        PortParameters = PortParameters,
+        ReturnPassages = ReturnPassages,
+        Algorithm = Algorithm
+    };
 }

@@ -4,17 +4,19 @@ This document describes every kind of waypoint that can appear in a route produc
 
 ## 1. Transport modes covered
 
-SeaRoute.Net models one transport mode: deep-sea shipping on the Eurostat Marnet network.
+SeaRoute.Net routes one transport mode, deep-sea shipping on the Eurostat Marnet network. Multi-leg movements may also contain road, rail and air legs, which are measured as straight great-circle lines rather than routed on a network.
 
-| Mode | Modelled | Network | Choke points |
-|---|---|---|---|
-| Sea (ocean-going vessel) | Yes | Marnet, 9,708 nodes, 31,940 directed edges | 13 tagged passages, listed in section 3 |
-| Inland waterway | No | Not in the dataset | None |
-| Road | No | Not in the dataset | None |
-| Rail | No | Not in the dataset | None |
-| Air | No | Not in the dataset | None |
+| Mode | Routed | Network | Leg geometry | Duration basis | Choke points |
+|---|---|---|---|---|---|
+| Sea | Yes | Marnet, 9,708 nodes, 31,940 directed edges | Network path | `SpeedKnots`, default 24 | 13 tagged passages, listed in section 3 |
+| Road | No | None | Straight line, 2 points | `SpeedsKmh[Road]`, default 60 | None |
+| Rail | No | None | Straight line, 2 points | `SpeedsKmh[Rail]`, default 80 | None |
+| Air | No | None | Straight line, 2 points | `SpeedsKmh[Air]`, default 800 | None |
+| Inland waterway | No | None | Not supported as a mode | n/a | None |
 
-The only land-side element is the straight leg that joins an inland origin or destination to its nearest port when `AppendOriginDestination` is set. That leg is a great-circle line, not a road or rail path, and it is not checked against land.
+Two other straight-line elements exist. The leg that joins an inland origin or destination to its nearest port when `AppendOriginDestination` is set, and the road, rail and air legs of a movement, whatever their kind. Neither is checked against land.
+
+Movement legs are written one per line, `Pickup GBLGW to Port GBFXT Road`, and parsed by `MovementParser`. Location codes resolve against caller-supplied coordinates first, then the embedded port list, then an `ILocationResolver`. Inland codes such as GBLGW are not ports and must be supplied. Sea legs in a movement always include their resolved endpoints (2.3), so consecutive legs join. A sea leg with no route under the restrictions raises an error naming the leg instead of contributing an empty line.
 
 ## 2. Waypoint types
 
@@ -97,7 +99,7 @@ Some Arctic nodes are also duplicated east of the seam, out to 190.85° E. After
 
 ### 2.8 Degenerate result
 
-If both request points snap to the same node, the line has one coordinate and the length is zero. If passage restrictions leave no path, the line is empty and length and duration are zero. No exception is thrown in either case.
+If both request points snap to the same node, the line is drawn straight between the two request points, so it always has two coordinates and a real length. If passage restrictions leave no path, the line is empty and length and duration are zero, and no exception is thrown for a single route.
 
 ## 3. Choke points
 

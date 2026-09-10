@@ -1,6 +1,7 @@
 using SeaRoute.Common;
 using SeaRoute.GeoJson;
 using SeaRoute.Graph;
+using SeaRoute.Movements;
 using SeaRoute.Ports;
 
 namespace SeaRoute;
@@ -40,4 +41,11 @@ public interface ISeaRouteEngine
     /// Calculates the shortest maritime route between two port codes (e.g. UN/LOCODE like "FRLEH", "CNTSN").
     /// </summary>
     GeoJsonFeature CalculateRoute(string originPortCode, string destPortCode, SeaRouteOptions? options = null);
+
+    /// <summary>
+    /// Routes a multi-leg movement. Sea legs use the maritime network; road, rail and air legs are straight great-circle lines.
+    /// Implementations that predate movements keep compiling and throw <see cref="NotSupportedException"/>.
+    /// </summary>
+    MovementResult CalculateMovement(MovementRequest request)
+        => throw new NotSupportedException($"{GetType().Name} does not support multi-leg movements.");
 }

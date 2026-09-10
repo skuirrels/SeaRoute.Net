@@ -63,7 +63,7 @@ Key design points:
 `CalculateRoute` returns a `GeoJsonFeature`. `ToJson()` serialises it to standard GeoJSON that Leaflet, Mapbox GL, OpenLayers, deck.gl, QGIS and PostGIS all consume directly.
 
 <p align="center">
-  <img src="docs/diagrams/output-model.png" alt="SeaRoute.Net output model: a GeoJsonFeature holds a GeoJsonLineString geometry and SeaRouteProperties with length, units, duration, traversed passages and optional origin and destination Port entities" width="100%">
+  <img src="docs/diagrams/output-model.png" alt="SeaRoute.Net output model: a GeoJsonFeature holds a GeoJsonLineString geometry and SeaRouteProperties with length, units, duration, traversed passages, optional origin and destination Port entities and, for movement legs, leg, mode, kind, from and to; a movement is a GeoJsonFeatureCollection of leg features with MovementProperties totals" width="100%">
 </p>
 
 Source: [docs/diagrams/output-model.svg](docs/diagrams/output-model.svg) (vector) and [output-model.html](docs/diagrams/output-model.html).
@@ -185,6 +185,46 @@ var routes = SeaRouteEngine.Default.CalculateRoutes(brussels, tokyo, new SeaRout
 // Two features: one via Antwerp (share 0.56), one via Le Havre (share 0.44)
 ```
 
+### Multi-leg movements
+
+A movement is a list of legs, one per line, in the form `[Pickup|Delivery] [port|place] CODE to [port|place] CODE MODE`. Sea legs are routed on the network. Road, rail and air legs are straight great-circle lines with a configurable speed per mode.
+
+<p align="center">
+  <img src="docs/diagrams/movement-flow.png" alt="SeaRoute.Net movement flow: leg lines are parsed, each leg's locations resolved, sea legs routed on Marnet and road, rail or air legs measured as straight lines, producing one feature per leg and a FeatureCollection with totals" width="70%">
+</p>
+
+Source: [docs/diagrams/movement-flow.svg](docs/diagrams/movement-flow.svg) (vector) and [movement-flow.html](docs/diagrams/movement-flow.html).
+
+```csharp
+using SeaRoute.Movements;
+
+const string legs = """
+    Pickup GBLGW to Port GBFXT Road
+    Port GBFXT to Port SGSIN Sea
+    Port SGSIN to Port AUMEL Sea
+    Delivery from port AUMEL to place AUMRS Sea
+    """;
+
+// Codes that are not in the embedded port list need a coordinate, or an ILocationResolver.
+var places = new Dictionary<string, Coordinate>
+{
+    ["GBLGW"] = new(-0.190278, 51.148056),
+    ["AUMRS"] = new(145.13, -37.92)
+};
+
+var movement = SeaRouter.CalculateMovement(legs, places);
+
+foreach (var leg in movement.Legs)
+    Console.WriteLine($"{leg.Sequence} {leg.Leg.Mode} {leg.From.Label} to {leg.To.Label}: {leg.Length:N0} km");
+
+Console.WriteLine($"{movement.TotalLength:N0} km, {movement.TotalDurationHours:N0} h");
+string geoJson = movement.ToJson();   // FeatureCollection, one feature per leg
+```
+
+Each leg feature carries `leg`, `mode`, `kind`, `from` and `to` in its properties, and the collection carries `total_length`, `units`, `total_duration_hours` and `legs`. Every leg starts and ends at its resolved locations, so consecutive legs join end to end; `AppendOriginDestination` is always on for movement legs. A sea leg with no route under the given restrictions throws an `InvalidOperationException` naming the leg rather than contributing zero. Build a `MovementRequest` directly to set sea options, per-mode speeds or a resolver.
+
+Codes resolve in this order: a coordinate supplied by the caller, the embedded port list, then an `ILocationResolver` if one is set. Check port matches: for example `CNSHG` is Sanshan on the Yangtze, while Shanghai is `CNSHA`. An unknown code with no coordinate throws an `ArgumentException` naming the code rather than guessing.
+
 ## Options reference
 
 | `SeaRouteOptions` | Default | Description |
@@ -230,6 +270,7 @@ src/
     Data/                   marnet.json.gz, ports.json.gz and their loader
     GeoJson/                Feature, LineString and properties types
     Graph/                  MaritimeGraph, BidirectionalDijkstra, AStar, per-thread search buffers
+    Movements/              multi-leg movements: legs, parser, request, result, location resolution
     Passages/               passage identifiers
     Ports/                  Port, PortDatabase, PortParameters, AreaFeature, PortProps
     Spatial/                2D KD-tree
@@ -257,7 +298,7 @@ dotnet test tests/SeaRoute.Tests
 dotnet run --project src/SeaRoute.Sample
 ```
 
-The sample prints eight worked examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes and GeoJSON output. Add `--geojson` to print a full feature.
+The sample prints nine worked examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes, GeoJSON output and a multi-leg movement. Add `--geojson` to print a full feature.
 
 To produce the NuGet package locally:
 

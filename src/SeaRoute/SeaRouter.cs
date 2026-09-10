@@ -1,5 +1,6 @@
 using SeaRoute.Common;
 using SeaRoute.GeoJson;
+using SeaRoute.Movements;
 using SeaRoute.Passages;
 using SeaRoute.Ports;
 
@@ -112,6 +113,35 @@ public static class SeaRouter
         }
 
         return Engine.CalculateRoute(origin, destination, options);
+    }
+
+    /// <summary>
+    /// Routes a multi-leg movement described as one leg per line, for example
+    /// <c>Pickup GBLGW to Port GBFXT Road</c>. Codes not in the port database need a coordinate in <paramref name="coordinates"/>.
+    /// </summary>
+    public static MovementResult CalculateMovement(
+        string legsText,
+        IReadOnlyDictionary<string, Coordinate>? coordinates = null,
+        SeaRouteOptions? seaOptions = null,
+        ILocationResolver? resolver = null)
+    {
+        var request = new MovementRequest { Legs = MovementParser.Parse(legsText) };
+        if (coordinates != null)
+        {
+            foreach (var (code, coordinate) in coordinates)
+                request.Coordinates[code] = coordinate;
+        }
+        request.SeaOptions = seaOptions;
+        request.Resolver = resolver;
+        return Engine.CalculateMovement(request);
+    }
+
+    /// <summary>
+    /// Routes a multi-leg movement.
+    /// </summary>
+    public static MovementResult CalculateMovement(MovementRequest request)
+    {
+        return Engine.CalculateMovement(request);
     }
 
     /// <summary>
