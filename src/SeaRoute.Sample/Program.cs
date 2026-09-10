@@ -146,7 +146,8 @@ static void PrintMovement(string title, string legs, IReadOnlyDictionary<string,
     foreach (var line in legs.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         Console.WriteLine("   " + line);
     Console.WriteLine();
-    Console.WriteLine($"   {"Leg",-4}{"Kind",-10}{"Mode",-6}{"From",-7}{"To",-7}{"Distance",12}{"Time",9}{"gCO2e/t-km",12}{"kg CO2e/t",12}{"kg CO2e",10}{"Basis",8}  Choke points");
+    Console.WriteLine($"   {"Leg",-4}{"Kind",-10}{"Mode",-6}{"From",-7}{"To",-7}{"Distance",12}{"Time",9}{"CO2e rate",12}{"Per tonne",12}{"Shipment",10}{"Basis",8}  Choke points");
+    Console.WriteLine($"   {"",4}{"",10}{"",6}{"",7}{"",7}{"",12}{"",9}{"g/t-km",12}{"kg",12}{"kg",10}{"",8}");
     foreach (var leg in movement.Legs)
     {
         Console.WriteLine(
@@ -154,7 +155,8 @@ static void PrintMovement(string title, string legs, IReadOnlyDictionary<string,
             $"{leg.Length,9:N0} km{leg.DurationHours,7:N1} h{leg.Co2eGramsPerTonneKm,12:N1}{leg.Co2eKgPerTonne,12:N1}{leg.Co2eKg,10:N0}{leg.Co2eBasis,8}  {PassageNames(leg.Feature.Properties.TraversedPassages)}");
     }
     Console.WriteLine($"   {"Total",-34}{movement.TotalLength,9:N0} km{movement.TotalDurationHours,7:N1} h{"",12}{movement.TotalCo2eKgPerTonne,12:N1}{movement.TotalCo2eKg,10:N0}{"",8}  for {movement.CargoTonnes:N0} t of cargo" + (movement.CargoTeu.HasValue ? $" in {movement.CargoTeu:N0} TEU" : ""));
-    Console.WriteLine("   CO2e is well-to-wheel, GLEC Framework defaults: sea 7.6 per tonne or 76 per TEU, road 92, rail 28, air 1130/700/630 g per km by distance band");
+    Console.WriteLine("   CO2e rate: grams of CO2e to move 1 tonne 1 km, well-to-wheel, GLEC defaults. Per tonne: rate x distance, kg for 1 tonne over the leg.");
+    Console.WriteLine("   Shipment: per tonne x your cargo weight, or per container at 76 g per TEU-km for sea legs when a TEU count is given.");
 }
 
 static string PassageNames(IReadOnlyList<string>? tags)
