@@ -42,11 +42,18 @@ Console.WriteLine($"{route.Properties.Length:N0} {route.Properties.Units}, {rout
 
 ## How it works
 
-Every request flows through the same pipeline. The two spatial indexes and the graph are built once on first use and shared, immutably, by every thread afterwards.
+Every request goes through the same six steps, in order. The datasets are decompressed and indexed once on first use, then shared read-only by every thread.
 
 <p align="center">
-  <img src="docs/diagrams/routing-pipeline.png" alt="SeaRoute.Net routing pipeline: a request is optionally resolved to ports, snapped to the nearest Marnet graph node, searched with bidirectional Dijkstra or A*, post-processed and returned as a GeoJSON feature" width="100%">
+  <img src="docs/diagrams/routing-pipeline.png" alt="SeaRoute.Net routing pipeline in six numbered steps: take the request, optionally resolve ports, snap each end to the nearest shipping-lane point, find the shortest path along the lanes avoiding closed passages, add the real endpoints and measure length and time, return a GeoJSON feature. A strip below follows Marseille to Cape Town through each step." width="100%">
 </p>
+
+1. **Take the request.** An origin and a destination, as coordinates or UN/LOCODE port codes, plus options such as units, vessel speed and closed passages.
+2. **Resolve ports** only if `IncludePorts` is set. Each end is swapped for its nearest port from the embedded list of 3,955, optionally limited to container terminals or a country.
+3. **Snap to the lane network.** Each end is matched to the nearest point on Marnet, Eurostat's map of shipping lanes, using a KD-tree. Marseille lands 2 km from its lane point, Cape Town 8 km.
+4. **Find the shortest path** along the lanes with bidirectional Dijkstra, or A* on request. Lane links through a closed canal or strait are skipped; the Northwest Passage is closed by default. Marseille to Cape Town gives 59 lane points over 10,986 km, passing Gibraltar.
+5. **Finish the route.** With `AppendOriginDestination` the real endpoints are added, longitudes are unwrapped across the antimeridian, and length and duration are measured: 61 points, 10,997 km, 247 hours at 24 knots.
+6. **Return a GeoJSON Feature**: a LineString for the map plus distance, units, duration, the ports used and the passages traversed.
 
 Source: [docs/diagrams/routing-pipeline.svg](docs/diagrams/routing-pipeline.svg) (vector) and [routing-pipeline.html](docs/diagrams/routing-pipeline.html).
 

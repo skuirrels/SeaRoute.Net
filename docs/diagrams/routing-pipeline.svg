@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 0 1280 480" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="routing-pipeline-title routing-pipeline-desc">
+<svg viewBox="0 0 1280 464" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="routing-pipeline-title routing-pipeline-desc">
   <title id="routing-pipeline-title">SeaRoute.Net routing pipeline</title>
-  <desc id="routing-pipeline-desc">A request with origin, destination and options is optionally resolved to ports, snapped to the nearest Marnet graph node, searched with bidirectional Dijkstra or A star, post-processed for antimeridian unwrapping, length and duration, and returned as a GeoJSON feature; the world ports and Marnet graph datasets are embedded in the library.</desc>
+  <desc id="routing-pipeline-desc">Six numbered steps from left to right: take the request, optionally resolve ports, snap each point to the shipping-lane network, find the shortest path along the lanes avoiding closed passages, finish the route by adding the endpoints and measuring length and time, and return a GeoJSON feature. Two embedded datasets feed the steps: world ports and the Marnet lane network. A strip below follows a Marseille to Cape Town request through every step.</desc>
   <defs>
     <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap');</style>
     <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#5b6472"/></marker>
@@ -11,133 +11,137 @@
 
   <rect width="100%" height="100%" fill="#f6f7f8"/>
 
-  <!-- Zones (painted first) -->
-  <rect x="240" y="72" width="496" height="112" rx="8" fill="rgba(24,24,24,0.02)" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
-  <rect x="252" y="76" width="96" height="12" rx="2" fill="#f6f7f8"/>
-  <text x="300" y="84" fill="rgba(24,24,24,0.40)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">EMBEDDED DATA</text>
-
-  <rect x="240" y="200" width="800" height="176" rx="8" fill="rgba(24,24,24,0.02)" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
-  <rect x="252" y="204" width="112" height="12" rx="2" fill="#f6f7f8"/>
-  <text x="308" y="212" fill="rgba(24,24,24,0.40)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">ROUTING PIPELINE</text>
+  <!-- Zone: embedded data (painted first) -->
+  <rect x="232" y="40" width="520" height="104" rx="8" fill="rgba(24,24,24,0.02)" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
+  <rect x="244" y="44" width="176" height="12" rx="2" fill="#f6f7f8"/>
+  <text x="332" y="52" fill="rgba(24,24,24,0.40)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">EMBEDDED DATA · LOADED ONCE</text>
 
   <!-- Connectors (before nodes) -->
-  <!-- World ports -> Port resolution -->
-  <line x1="328" y1="168" x2="328" y2="232" stroke="#5b6472" stroke-width="1" marker-end="url(#arrow)"/>
-  <!-- Marnet graph -> Snap to network -->
-  <line x1="592" y1="168" x2="592" y2="232" stroke="#5b6472" stroke-width="1" marker-end="url(#arrow)"/>
-  <!-- Marnet graph -> Shortest-path search -->
-  <line x1="688" y1="168" x2="688" y2="232" stroke="#5b6472" stroke-width="1" marker-end="url(#arrow)"/>
-  <!-- Request -> Port resolution (optional) -->
-  <line x1="192" y1="264" x2="256" y2="264" stroke="#5b6472" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
-  <!-- Request -> Snap to network (ports disabled), routed beneath Port resolution -->
-  <path d="M120,296 V344 Q120,352 128,352 H528 Q536,352 536,344 V296" fill="none" stroke="#5b6472" stroke-width="1.2" marker-end="url(#arrow)"/>
-  <!-- Port resolution -> Snap to network -->
-  <line x1="400" y1="264" x2="464" y2="264" stroke="#5b6472" stroke-width="1.2" marker-end="url(#arrow)"/>
-  <!-- Snap to network -> Shortest-path search -->
-  <line x1="608" y1="264" x2="672" y2="264" stroke="#5b6472" stroke-width="1.2" marker-end="url(#arrow)"/>
-  <!-- Shortest-path search -> Post-process (focal) -->
-  <line x1="816" y1="264" x2="880" y2="264" stroke="#0a34a1" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
-  <!-- Post-process -> GeoJSON Feature (output) -->
-  <line x1="1024" y1="264" x2="1088" y2="264" stroke="#1c4178" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+  <!-- datasets feeding steps -->
+  <line x1="336" y1="128" x2="336" y2="176" stroke="#5b6472" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="592" y1="128" x2="592" y2="176" stroke="#5b6472" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="704" y1="128" x2="704" y2="176" stroke="#5b6472" stroke-width="1" marker-end="url(#arrow)"/>
+  <!-- step to step, in order -->
+  <line x1="216" y1="212" x2="248" y2="212" stroke="#5b6472" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="424" y1="212" x2="456" y2="212" stroke="#5b6472" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="632" y1="212" x2="664" y2="212" stroke="#5b6472" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="840" y1="212" x2="872" y2="212" stroke="#0a34a1" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+  <line x1="1048" y1="212" x2="1080" y2="212" stroke="#1c4178" stroke-width="1.2" marker-end="url(#arrow-link)"/>
 
-  <!-- Connector labels (masked, 8px above the stroke) -->
-  <rect x="200" y="244" width="48" height="12" rx="2" fill="#f6f7f8"/>
-  <text x="224" y="253" fill="#6c7484" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">PORTS ON</text>
-  <rect x="300" y="332" width="56" height="12" rx="2" fill="#f6f7f8"/>
-  <text x="328" y="341" fill="#6c7484" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">PORTS OFF</text>
-  <rect x="412" y="244" width="40" height="12" rx="2" fill="#f6f7f8"/>
-  <text x="432" y="253" fill="#6c7484" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">COORDS</text>
-  <rect x="616" y="244" width="48" height="12" rx="2" fill="#f6f7f8"/>
-  <text x="640" y="253" fill="#6c7484" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">NODE IDS</text>
-  <rect x="832" y="244" width="32" height="12" rx="2" fill="#f6f7f8"/>
-  <text x="848" y="253" fill="#0a34a1" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">PATH</text>
-  <rect x="1032" y="244" width="48" height="12" rx="2" fill="#f6f7f8"/>
-  <text x="1056" y="253" fill="#1c4178" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">GEOJSON</text>
+  <!-- Dataset: World ports -->
+  <rect x="248" y="72" width="176" height="56" rx="6" fill="#f6f7f8"/>
+  <rect x="248" y="72" width="176" height="56" rx="6" fill="rgba(24,24,24,0.05)" stroke="#5b6472" stroke-width="1"/>
+  <text x="336" y="96" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">World ports</text>
+  <text x="336" y="112" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">3,955 ports with UN/LOCODE</text>
 
-  <!-- Nodes -->
-  <!-- World ports (store) -->
-  <rect x="256" y="104" width="144" height="64" rx="6" fill="#f6f7f8"/>
-  <rect x="256" y="104" width="144" height="64" rx="6" fill="rgba(24,24,24,0.05)" stroke="#5b6472" stroke-width="1"/>
-  <rect x="264" y="110" width="32" height="12" rx="2" fill="transparent" stroke="rgba(91,100,114,0.40)" stroke-width="0.8"/>
-  <text x="280" y="119" fill="rgba(91,100,114,0.80)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DATA</text>
-  <text x="328" y="138" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">World ports</text>
-  <text x="328" y="154" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">3,955 ports · KD-tree</text>
+  <!-- Dataset: Marnet graph -->
+  <rect x="560" y="72" width="176" height="56" rx="6" fill="#f6f7f8"/>
+  <rect x="560" y="72" width="176" height="56" rx="6" fill="rgba(24,24,24,0.05)" stroke="#5b6472" stroke-width="1"/>
+  <text x="648" y="96" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Marnet lane network</text>
+  <text x="648" y="112" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">9,708 lane points · 31,940 links</text>
 
-  <!-- Marnet graph (store) -->
-  <rect x="560" y="104" width="160" height="64" rx="6" fill="#f6f7f8"/>
-  <rect x="560" y="104" width="160" height="64" rx="6" fill="rgba(24,24,24,0.05)" stroke="#5b6472" stroke-width="1"/>
-  <rect x="568" y="110" width="32" height="12" rx="2" fill="transparent" stroke="rgba(91,100,114,0.40)" stroke-width="0.8"/>
-  <text x="584" y="119" fill="rgba(91,100,114,0.80)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">DATA</text>
-  <text x="640" y="138" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Marnet graph</text>
-  <text x="640" y="154" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">9,708 nodes · 31,940 edges</text>
+  <!-- Editorial callout: what Marnet is -->
+  <text x="1232" y="84" fill="#181818" font-size="14" font-style="italic" font-family="'Instrument Serif', serif" text-anchor="end">Marnet is Eurostat's global map of shipping lanes.</text>
+  <text x="1232" y="104" fill="#181818" font-size="14" font-style="italic" font-family="'Instrument Serif', serif" text-anchor="end">Routes only ever travel along these lanes.</text>
+  <path d="M 1000,112 Q 880,116 744,100" fill="none" stroke="rgba(24,24,24,0.40)" stroke-width="1" stroke-dasharray="4,3"/>
+  <circle cx="736" cy="100" r="2" fill="#181818"/>
 
-  <!-- Request (input) -->
-  <rect x="48" y="232" width="144" height="64" rx="6" fill="#f6f7f8"/>
-  <rect x="48" y="232" width="144" height="64" rx="6" fill="rgba(91,100,114,0.10)" stroke="#6c7484" stroke-width="1"/>
-  <rect x="56" y="238" width="24" height="12" rx="2" fill="transparent" stroke="rgba(108,116,132,0.40)" stroke-width="0.8"/>
-  <text x="68" y="247" fill="rgba(108,116,132,0.80)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">IN</text>
-  <text x="120" y="266" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Request</text>
-  <text x="120" y="282" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">coords or ports · options</text>
+  <!-- Step 01: Take the request (input) -->
+  <rect x="40" y="176" width="176" height="72" rx="6" fill="#f6f7f8"/>
+  <rect x="40" y="176" width="176" height="72" rx="6" fill="rgba(91,100,114,0.10)" stroke="#6c7484" stroke-width="1"/>
+  <rect x="48" y="184" width="20" height="12" rx="6" fill="rgba(24,24,24,0.12)"/>
+  <text x="58" y="193" fill="#181818" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">01</text>
+  <text x="128" y="206" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Take the request</text>
+  <text x="128" y="222" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">origin and destination</text>
+  <text x="128" y="234" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">as coordinates or port codes</text>
 
-  <!-- Port resolution (optional) -->
-  <rect x="256" y="232" width="144" height="64" rx="6" fill="#f6f7f8"/>
-  <rect x="256" y="232" width="144" height="64" rx="6" fill="rgba(24,24,24,0.02)" stroke="rgba(24,24,24,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
-  <rect x="264" y="238" width="28" height="12" rx="2" fill="transparent" stroke="rgba(24,24,24,0.30)" stroke-width="0.8"/>
-  <text x="278" y="247" fill="rgba(24,24,24,0.60)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">OPT</text>
-  <text x="328" y="266" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Port resolution</text>
-  <text x="328" y="282" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">nearest port · area shares</text>
+  <!-- Step 02: Resolve ports (optional) -->
+  <rect x="248" y="176" width="176" height="72" rx="6" fill="#f6f7f8"/>
+  <rect x="248" y="176" width="176" height="72" rx="6" fill="rgba(24,24,24,0.02)" stroke="rgba(24,24,24,0.30)" stroke-width="1" stroke-dasharray="4,3"/>
+  <rect x="256" y="184" width="20" height="12" rx="6" fill="rgba(24,24,24,0.12)"/>
+  <text x="266" y="193" fill="#181818" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">02</text>
+  <text x="336" y="206" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Resolve ports (optional)</text>
+  <text x="336" y="222" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">swap each point for its</text>
+  <text x="336" y="234" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">nearest port, if asked to</text>
 
-  <!-- Snap to network (step) -->
-  <rect x="464" y="232" width="144" height="64" rx="6" fill="#f6f7f8"/>
-  <rect x="464" y="232" width="144" height="64" rx="6" fill="#ffffff" stroke="#181818" stroke-width="1"/>
-  <rect x="472" y="238" width="32" height="12" rx="2" fill="transparent" stroke="rgba(24,24,24,0.40)" stroke-width="0.8"/>
-  <text x="488" y="247" fill="rgba(24,24,24,0.80)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">STEP</text>
-  <text x="536" y="266" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Snap to network</text>
-  <text x="536" y="282" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">nearest graph node</text>
+  <!-- Step 03: Snap to the lane network -->
+  <rect x="456" y="176" width="176" height="72" rx="6" fill="#f6f7f8"/>
+  <rect x="456" y="176" width="176" height="72" rx="6" fill="#ffffff" stroke="#181818" stroke-width="1"/>
+  <rect x="464" y="184" width="20" height="12" rx="6" fill="rgba(24,24,24,0.12)"/>
+  <text x="474" y="193" fill="#181818" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">03</text>
+  <text x="544" y="206" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Snap to the lane network</text>
+  <text x="544" y="222" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">find the nearest lane point</text>
+  <text x="544" y="234" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">to each end</text>
 
-  <!-- Shortest-path search (focal) -->
-  <rect x="672" y="232" width="144" height="64" rx="6" fill="#f6f7f8"/>
-  <rect x="672" y="232" width="144" height="64" rx="6" fill="rgba(10,52,161,0.08)" stroke="#0a34a1" stroke-width="1"/>
-  <rect x="680" y="238" width="44" height="12" rx="2" fill="transparent" stroke="rgba(10,52,161,0.40)" stroke-width="0.8"/>
-  <text x="702" y="247" fill="#0a34a1" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SEARCH</text>
-  <text x="744" y="266" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Shortest path</text>
-  <text x="744" y="282" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">bidir. Dijkstra or A*</text>
+  <!-- Step 04: Find the shortest path (focal) -->
+  <rect x="664" y="176" width="176" height="72" rx="6" fill="#f6f7f8"/>
+  <rect x="664" y="176" width="176" height="72" rx="6" fill="rgba(10,52,161,0.08)" stroke="#0a34a1" stroke-width="1"/>
+  <rect x="672" y="184" width="20" height="12" rx="6" fill="rgba(10,52,161,0.20)"/>
+  <text x="682" y="193" fill="#0a34a1" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">04</text>
+  <text x="752" y="206" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Find the shortest path</text>
+  <text x="752" y="222" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">along the lanes, skipping</text>
+  <text x="752" y="234" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">any closed canal or strait</text>
 
-  <!-- Post-process (step) -->
-  <rect x="880" y="232" width="144" height="64" rx="6" fill="#f6f7f8"/>
-  <rect x="880" y="232" width="144" height="64" rx="6" fill="#ffffff" stroke="#181818" stroke-width="1"/>
-  <rect x="888" y="238" width="32" height="12" rx="2" fill="transparent" stroke="rgba(24,24,24,0.40)" stroke-width="0.8"/>
-  <text x="904" y="247" fill="rgba(24,24,24,0.80)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">STEP</text>
-  <text x="952" y="266" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Post-process</text>
-  <text x="952" y="282" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">unwrap ±180° · length · time</text>
+  <!-- Step 05: Finish the route -->
+  <rect x="872" y="176" width="176" height="72" rx="6" fill="#f6f7f8"/>
+  <rect x="872" y="176" width="176" height="72" rx="6" fill="#ffffff" stroke="#181818" stroke-width="1"/>
+  <rect x="880" y="184" width="20" height="12" rx="6" fill="rgba(24,24,24,0.12)"/>
+  <text x="890" y="193" fill="#181818" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">05</text>
+  <text x="960" y="206" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Finish the route</text>
+  <text x="960" y="222" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">add the real endpoints,</text>
+  <text x="960" y="234" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">measure length and time</text>
 
-  <!-- GeoJSON Feature (output) -->
-  <rect x="1088" y="232" width="144" height="64" rx="6" fill="#f6f7f8"/>
-  <rect x="1088" y="232" width="144" height="64" rx="6" fill="#ffffff" stroke="#181818" stroke-width="1"/>
-  <rect x="1096" y="238" width="28" height="12" rx="2" fill="transparent" stroke="rgba(24,24,24,0.40)" stroke-width="0.8"/>
-  <text x="1110" y="247" fill="rgba(24,24,24,0.80)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">OUT</text>
-  <text x="1160" y="266" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">GeoJSON Feature</text>
-  <text x="1160" y="282" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">LineString + properties</text>
+  <!-- Step 06: Return the result (output) -->
+  <rect x="1080" y="176" width="176" height="72" rx="6" fill="#f6f7f8"/>
+  <rect x="1080" y="176" width="176" height="72" rx="6" fill="#ffffff" stroke="#181818" stroke-width="1"/>
+  <rect x="1088" y="184" width="20" height="12" rx="6" fill="rgba(24,24,24,0.12)"/>
+  <text x="1098" y="193" fill="#181818" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">06</text>
+  <text x="1168" y="206" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Return a GeoJSON Feature</text>
+  <text x="1168" y="222" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">a line for the map, plus</text>
+  <text x="1168" y="234" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">distance · duration · ports</text>
 
-  <!-- Editorial callout: what Marnet is (top-right margin, dashed leader to the node) -->
-  <text x="1232" y="92" fill="#181818" font-size="14" font-style="italic" font-family="'Instrument Serif', serif" text-anchor="end">Marnet is Eurostat's global network of shipping lanes.</text>
-  <text x="1232" y="112" fill="#181818" font-size="14" font-style="italic" font-family="'Instrument Serif', serif" text-anchor="end">Nodes are points along a lane; edges carry distance and a passage tag.</text>
-  <path d="M 1000,120 Q 860,124 728,136" fill="none" stroke="rgba(24,24,24,0.40)" stroke-width="1" stroke-dasharray="4,3"/>
-  <circle cx="720" cy="136" r="2" fill="#181818"/>
+  <!-- Worked example strip, one column under each step -->
+  <line x1="40" y1="280" x2="1240" y2="280" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
+  <text x="40" y="300" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">WORKED EXAMPLE · MARSEILLE TO CAPE TOWN WITH DEFAULT OPTIONS</text>
+
+  <text x="48" y="324" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">from 5.33°E 43.33°N</text>
+  <text x="48" y="340" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">to 18.37°E 33.92°S</text>
+  <text x="48" y="356" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">km · 24 knots · ports off</text>
+
+  <text x="256" y="324" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">skipped: IncludePorts is off</text>
+  <text x="256" y="340" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">both points pass through</text>
+  <text x="256" y="356" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">unchanged</text>
+
+  <text x="464" y="324" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">Marseille: lane point 2 km away</text>
+  <text x="464" y="340" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">Cape Town: lane point 8 km away</text>
+  <text x="464" y="356" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">found with a KD-tree lookup</text>
+
+  <text x="672" y="324" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">59 lane points, 10,986 km</text>
+  <text x="672" y="340" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">passes Gibraltar</text>
+  <text x="672" y="356" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">Northwest Passage closed</text>
+
+  <text x="880" y="324" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">+ origin and destination</text>
+  <text x="880" y="340" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">61 points, 10,997 km</text>
+  <text x="880" y="356" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">247 h at 24 knots</text>
+
+  <text x="1088" y="324" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">LineString of 61 positions</text>
+  <text x="1088" y="340" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">length · units · duration_hours</text>
+  <text x="1088" y="356" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">1,310 characters of JSON</text>
 
   <!-- Legend strip -->
-  <line x1="40" y1="416" x2="1240" y2="416" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
-  <text x="40" y="440" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
-  <rect x="128" y="428" width="16" height="12" rx="2" fill="rgba(91,100,114,0.10)" stroke="#6c7484" stroke-width="1"/>
-  <text x="152" y="440" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">INPUT</text>
-  <rect x="248" y="428" width="16" height="12" rx="2" fill="#ffffff" stroke="#181818" stroke-width="1"/>
-  <text x="272" y="440" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">STEP</text>
-  <rect x="368" y="428" width="16" height="12" rx="2" fill="rgba(10,52,161,0.08)" stroke="#0a34a1" stroke-width="1"/>
-  <text x="392" y="440" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">FOCAL</text>
-  <rect x="488" y="428" width="16" height="12" rx="2" fill="rgba(24,24,24,0.05)" stroke="#5b6472" stroke-width="1"/>
-  <text x="512" y="440" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">EMBEDDED DATASET</text>
-  <rect x="656" y="428" width="16" height="12" rx="2" fill="rgba(24,24,24,0.02)" stroke="rgba(24,24,24,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
-  <text x="680" y="440" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">OPTIONAL STEP</text>
-  <line x1="808" y1="434" x2="840" y2="434" stroke="#1c4178" stroke-width="1.2" marker-end="url(#arrow-link)"/>
-  <text x="848" y="440" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">OUTPUT</text>
+  <line x1="40" y1="404" x2="1240" y2="404" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
+  <text x="40" y="428" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
+  <rect x="128" y="416" width="16" height="12" rx="2" fill="rgba(91,100,114,0.10)" stroke="#6c7484" stroke-width="1"/>
+  <text x="152" y="428" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">INPUT</text>
+  <rect x="248" y="416" width="16" height="12" rx="2" fill="#ffffff" stroke="#181818" stroke-width="1"/>
+  <text x="272" y="428" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">STEP</text>
+  <rect x="368" y="416" width="16" height="12" rx="2" fill="rgba(24,24,24,0.02)" stroke="rgba(24,24,24,0.30)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="392" y="428" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">OPTIONAL STEP</text>
+  <rect x="520" y="416" width="16" height="12" rx="2" fill="rgba(10,52,161,0.08)" stroke="#0a34a1" stroke-width="1"/>
+  <text x="544" y="428" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">THE SEARCH ITSELF</text>
+  <rect x="688" y="416" width="16" height="12" rx="2" fill="rgba(24,24,24,0.05)" stroke="#5b6472" stroke-width="1"/>
+  <text x="712" y="428" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">EMBEDDED DATASET</text>
+  <line x1="856" y1="422" x2="888" y2="422" stroke="#1c4178" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+  <text x="896" y="428" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">RESULT</text>
+  <text x="1000" y="428" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">01 → 06 STEPS RUN IN ORDER</text>
 </svg>
