@@ -271,7 +271,7 @@ var routes = SeaRouteEngine.Default.CalculateRoutes(SeaRouter.Locate("BEBRU").Co
 A `MovementPlan` builds a continuous route from typed waypoints and transport modes. Each destination automatically becomes the next leg's origin, so intermediate UN/LOCODEs are stated once. Declared waypoint types and sea, rail and air modes are checked against known UN/LOCODE functions. Pickup and delivery ordering is enforced while the plan is built. Sea legs are routed on the lane network. Road, rail and air legs are straight great-circle lines between their two waypoints, never touching lane points or choke points, with a configurable speed per mode: 60, 80 and 800 km/h by default.
 
 <p align="center">
-  <img src="docs/diagrams/movement-flow.png" alt="SeaRoute.Net movement flow: leg lines are parsed, each leg's locations resolved, sea legs routed on Marnet and road, rail or air legs measured as straight great-circle lines with no lane points or choke points, producing one feature per leg and a FeatureCollection with totals; worked examples show a UK to Melbourne movement with its transit time split into travelling and port hours, and a movement with an air leg from Heathrow to Melbourne" width="70%">
+  <img src="docs/diagrams/movement-flow.png" alt="SeaRoute.Net movement flow: a typed MovementPlan builds continuous legs, each leg's locations are resolved, sea legs are routed on Marnet and road, rail or air legs are measured as straight great-circle lines, producing one feature per leg and a FeatureCollection with totals; worked examples show fluent plans from the UK to Melbourne by sea and by air" width="70%">
 </p>
 
 Source: [docs/diagrams/movement-flow.svg](docs/diagrams/movement-flow.svg) (vector) and [movement-flow.html](docs/diagrams/movement-flow.html).
@@ -328,7 +328,7 @@ Movement legs also carry `port_hours` and `transit_hours`. Every sea leg is char
 Every movement leg carries a well-to-wheel CO2e estimate, and the totals add them up. The figures are intensity-based: grams of CO2e per tonne of cargo per kilometre, from the GLEC Framework defaults that ISO 14083 builds on. Pass `cargoTonnes` to get absolute kilograms as well.
 
 ```csharp
-var movement = SeaRouter.CalculateMovement(legs, cargoTonnes: 20.0);
+var movement = SeaRouter.CalculateMovement(plan, cargoTonnes: 20.0);
 
 foreach (var leg in movement.Legs)
     Console.WriteLine($"{leg.Leg.Mode}: {leg.Co2eGramsPerTonneKm} g/t-km, {leg.Co2eKgPerTonne:N1} kg/t, {leg.Co2eKg:N0} kg");
