@@ -1,9 +1,11 @@
+using System.Runtime.InteropServices;
 using SeaRoute.Common;
 
 namespace SeaRoute.Graph;
 
 /// <summary>
 /// High-performance Bidirectional Dijkstra shortest path solver.
+/// Uses node-indexed scratch arrays and generation stamps instead of per-query dictionaries.
 /// </summary>
 public static class BidirectionalDijkstra
 {
@@ -22,19 +24,23 @@ public static class BidirectionalDijkstra
             return (0.0, [graph.GetCoordinate(source)]);
         }
 
-        int nodeCount = graph.NodeCount;
-        var distF = new Dictionary<int, double>();
-        var distB = new Dictionary<int, double>();
-        var parentF = new Dictionary<int, int>();
-        var parentB = new Dictionary<int, int>();
-
-        var queueF = new PriorityQueue<int, double>();
-        var queueB = new PriorityQueue<int, double>();
+        var buffers = SearchBuffers.Acquire(graph.NodeCount);
+        int gen = buffers.Generation;
+        double[] distF = buffers.DistF;
+        double[] distB = buffers.DistB;
+        int[] parentF = buffers.ParentF;
+        int[] parentB = buffers.ParentB;
+        int[] stampF = buffers.StampF;
+        int[] stampB = buffers.StampB;
+        var queueF = buffers.QueueF;
+        var queueB = buffers.QueueB;
 
         distF[source] = 0.0;
+        stampF[source] = gen;
         queueF.Enqueue(source, 0.0);
 
         distB[target] = 0.0;
+        stampB[target] = gen;
         queueB.Enqueue(target, 0.0);
 
         double bestDistance = double.PositiveInfinity;
@@ -42,19 +48,19 @@ public static class BidirectionalDijkstra
 
         while (queueF.Count > 0 && queueB.Count > 0)
         {
-            // Alternate or take the side with smaller minimum key
-            if (queueF.TryPeek(out _, out double minF) && queueB.TryPeek(out _, out double minB))
+            queueF.TryPeek(out _, out double minF);
+            queueB.TryPeek(out _, out double minB);
+
+            if (minF + minB >= bestDistance)
             {
-                if (minF + minB >= bestDistance)
-                {
-                    break;
-                }
+                break;
             }
 
-            // Expand forward side
-            if (queueF.Count > 0 && (queueB.Count == 0 || queueF.PeekPriority() <= queueB.PeekPriority()))
+            if (minF <= minB)
             {
-                if (!queueF.TryDequeue(out int u, out double prioF) || prioF > distF[u])
+                // Expand forward side
+                queueF.TryDequeue(out int u, out double prioF);
+                if (prioF > distF[u])
                     continue;
 
                 double dU = distF[u];
@@ -69,15 +75,16 @@ public static class BidirectionalDijkstra
                     int v = edge.TargetNodeId;
                     double cost = dU + edge.Weight;
 
-                    if (!distF.TryGetValue(v, out double currentDist) || cost < currentDist)
+                    if (stampF[v] != gen || cost < distF[v])
                     {
                         distF[v] = cost;
                         parentF[v] = u;
+                        stampF[v] = gen;
                         queueF.Enqueue(v, cost);
 
-                        if (distB.TryGetValue(v, out double bDist))
+                        if (stampB[v] == gen)
                         {
-                            double total = cost + bDist;
+                            double total = cost + distB[v];
                             if (total < bestDistance)
                             {
                                 bestDistance = total;
@@ -87,10 +94,11 @@ public static class BidirectionalDijkstra
                     }
                 }
             }
-            else if (queueB.Count > 0)
+            else
             {
                 // Expand backward side
-                if (!queueB.TryDequeue(out int u, out double prioB) || prioB > distB[u])
+                queueB.TryDequeue(out int u, out double prioB);
+                if (prioB > distB[u])
                     continue;
 
                 double dU = distB[u];
@@ -105,15 +113,16 @@ public static class BidirectionalDijkstra
                     int v = edge.TargetNodeId;
                     double cost = dU + edge.Weight;
 
-                    if (!distB.TryGetValue(v, out double currentDist) || cost < currentDist)
+                    if (stampB[v] != gen || cost < distB[v])
                     {
                         distB[v] = cost;
                         parentB[v] = u;
+                        stampB[v] = gen;
                         queueB.Enqueue(v, cost);
 
-                        if (distF.TryGetValue(v, out double fDist))
+                        if (stampF[v] == gen)
                         {
-                            double total = fDist + cost;
+                            double total = distF[v] + cost;
                             if (total < bestDistance)
                             {
                                 bestDistance = total;
@@ -131,35 +140,31 @@ public static class BidirectionalDijkstra
         }
 
         // Reconstruct path: source -> meetNode -> target
-        var forwardPath = new List<int>();
-        int curr = meetNode;
-        while (curr != source)
-        {
-            forwardPath.Add(curr);
-            curr = parentF[curr];
-        }
-        forwardPath.Add(source);
-        forwardPath.Reverse();
+        int forwardLength = 1;
+        for (int curr = meetNode; curr != source; curr = parentF[curr])
+            forwardLength++;
 
-        curr = meetNode;
-        while (curr != target)
+        int backwardLength = 0;
+        for (int curr = meetNode; curr != target; curr = parentB[curr])
+            backwardLength++;
+
+        var coordinates = new List<Coordinate>(forwardLength + backwardLength);
+        CollectionsMarshal.SetCount(coordinates, forwardLength);
+
+        int index = forwardLength - 1;
+        for (int curr = meetNode; ; curr = parentF[curr])
+        {
+            coordinates[index--] = graph.GetCoordinate(curr);
+            if (curr == source)
+                break;
+        }
+
+        for (int curr = meetNode; curr != target;)
         {
             curr = parentB[curr];
-            forwardPath.Add(curr);
-        }
-
-        var coordinates = new List<Coordinate>(forwardPath.Count);
-        for (int i = 0; i < forwardPath.Count; i++)
-        {
-            coordinates.Add(graph.GetCoordinate(forwardPath[i]));
+            coordinates.Add(graph.GetCoordinate(curr));
         }
 
         return (bestDistance, coordinates);
-    }
-
-    private static double PeekPriority(this PriorityQueue<int, double> queue)
-    {
-        queue.TryPeek(out _, out double priority);
-        return priority;
     }
 }

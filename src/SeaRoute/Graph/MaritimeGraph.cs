@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using SeaRoute.Common;
 using SeaRoute.Spatial;
 
@@ -5,7 +6,7 @@ namespace SeaRoute.Graph;
 
 /// <summary>
 /// In-memory graph representing the global maritime shipping network (Marnet).
-/// Backed by adjacency lists and a 2D KD-Tree for sub-millisecond route queries.
+/// Backed by a compressed sparse row adjacency layout and a 2D KD-Tree for sub-millisecond route queries.
 /// </summary>
 public sealed class MaritimeGraph
 {
@@ -13,10 +14,17 @@ public sealed class MaritimeGraph
     private readonly Dictionary<Coordinate, int> _coordToId = [];
     private readonly List<List<GraphEdge>> _adjacency = [];
     private readonly Dictionary<(int, int), string?> _edgePassages = [];
+
+    // Flattened adjacency built by BuildIndex(): edges for node i live in _edges[_edgeOffsets[i].._edgeOffsets[i+1]).
+    private int[]? _edgeOffsets;
+    private GraphEdge[]? _edges;
     private KdTree<int>? _kdTree;
 
     /// <summary>Number of nodes in the graph.</summary>
     public int NodeCount => _nodeCoordinates.Count;
+
+    /// <summary>Number of directed edges in the graph.</summary>
+    public int EdgeCount => _edges?.Length ?? _adjacency.Sum(a => a.Count);
 
     /// <summary>
     /// Gets the coordinate of a node by its index.
@@ -24,9 +32,18 @@ public sealed class MaritimeGraph
     public Coordinate GetCoordinate(int nodeId) => _nodeCoordinates[nodeId];
 
     /// <summary>
-    /// Gets the adjacent edges for a node.
+    /// Gets the outgoing edges for a node as a span over the flattened adjacency array.
     /// </summary>
-    public IReadOnlyList<GraphEdge> GetEdges(int nodeId) => _adjacency[nodeId];
+    public ReadOnlySpan<GraphEdge> GetEdges(int nodeId)
+    {
+        if (_edges != null && _edgeOffsets != null)
+        {
+            int start = _edgeOffsets[nodeId];
+            return new ReadOnlySpan<GraphEdge>(_edges, start, _edgeOffsets[nodeId + 1] - start);
+        }
+
+        return CollectionsMarshal.AsSpan(_adjacency[nodeId]);
+    }
 
     /// <summary>
     /// Gets the passage associated with an edge (if any).
@@ -50,9 +67,11 @@ public sealed class MaritimeGraph
 
     /// <summary>
     /// Adds a node with its coordinate, returning its assigned integer node ID.
+    /// Invalidates any previously built index; call <see cref="BuildIndex"/> again before querying.
     /// </summary>
     public int AddNode(Coordinate coord)
     {
+        InvalidateIndex();
         int id = _nodeCoordinates.Count;
         _nodeCoordinates.Add(coord);
         _coordToId[coord] = id;
@@ -62,9 +81,11 @@ public sealed class MaritimeGraph
 
     /// <summary>
     /// Adds a directed edge from node uId to node vId with the specified weight and optional passage.
+    /// Invalidates any previously built index; call <see cref="BuildIndex"/> again before querying.
     /// </summary>
     public void AddDirectedEdge(int uId, int vId, double weight, string? passage = null)
     {
+        InvalidateIndex();
         _adjacency[uId].Add(new GraphEdge(vId, weight, passage));
         _edgePassages[(uId, vId)] = passage;
     }
@@ -77,15 +98,12 @@ public sealed class MaritimeGraph
         if (_coordToId.TryGetValue(coord, out int id))
             return id;
 
-        id = _nodeCoordinates.Count;
-        _nodeCoordinates.Add(coord);
-        _coordToId[coord] = id;
-        _adjacency.Add([]);
-        return id;
+        return AddNode(coord);
     }
 
     /// <summary>
     /// Adds an undirected edge between coordinates u and v.
+    /// Invalidates any previously built index; call <see cref="BuildIndex"/> again before querying.
     /// </summary>
     public void AddEdge(Coordinate u, Coordinate v, double? weight = null, string? passage = null)
     {
@@ -94,25 +112,45 @@ public sealed class MaritimeGraph
 
         double w = weight ?? Math.Round(Haversine.Distance(u, v, DistanceUnit.Km), 1);
 
-        _adjacency[uId].Add(new GraphEdge(vId, w, passage));
-        _adjacency[vId].Add(new GraphEdge(uId, w, passage));
-
-        _edgePassages[(uId, vId)] = passage;
-        _edgePassages[(vId, uId)] = passage;
+        AddDirectedEdge(uId, vId, w, passage);
+        AddDirectedEdge(vId, uId, w, passage);
     }
 
     /// <summary>
-    /// Finalizes graph construction and builds the KD-Tree index.
-    /// Must be called after all nodes and edges have been added.
+    /// Finalizes graph construction: flattens the adjacency lists into a compressed sparse row layout
+    /// and builds the KD-Tree index. Must be called after all nodes and edges have been added.
     /// </summary>
     public void BuildIndex()
     {
-        var items = new List<(Coordinate Point, int Value)>(_nodeCoordinates.Count);
-        for (int i = 0; i < _nodeCoordinates.Count; i++)
+        int nodeCount = _nodeCoordinates.Count;
+        var offsets = new int[nodeCount + 1];
+        for (int i = 0; i < nodeCount; i++)
+        {
+            offsets[i + 1] = offsets[i] + _adjacency[i].Count;
+        }
+
+        var edges = new GraphEdge[offsets[nodeCount]];
+        for (int i = 0; i < nodeCount; i++)
+        {
+            _adjacency[i].CopyTo(edges, offsets[i]);
+        }
+
+        var items = new List<(Coordinate Point, int Value)>(nodeCount);
+        for (int i = 0; i < nodeCount; i++)
         {
             items.Add((_nodeCoordinates[i], i));
         }
+
+        _edgeOffsets = offsets;
+        _edges = edges;
         _kdTree = new KdTree<int>(items);
+    }
+
+    private void InvalidateIndex()
+    {
+        _edgeOffsets = null;
+        _edges = null;
+        _kdTree = null;
     }
 
     /// <summary>

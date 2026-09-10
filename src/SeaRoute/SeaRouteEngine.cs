@@ -135,7 +135,7 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
             }
             else
             {
-                routeCoords = new List<Coordinate>(shortestPath);
+                routeCoords = shortestPath; // freshly allocated per query, safe to take ownership
 
                 if (includePorts && routeCoords.Count > 0)
                 {

@@ -1,24 +1,162 @@
-# SeaRoute.Net 🚢
+# SeaRoute.Net
 
-A high-performance, zero-external-dependency .NET 8 / .NET 10 maritime routing library based on the Eurostat maritime routing network (Marnet) and World Ports dataset.
+[![.NET 8 | 10](https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+[![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)](src/SeaRoute/SeaRoute.csproj)
 
-Calculates the shortest sea route between any two coordinates or ports on Earth with support for dynamic passage restrictions (Suez, Panama, Gibraltar, etc.), vessel speeds, unit conversions, port queries, antimeridian normalization, and standard GeoJSON output.
+Shortest sea route between any two points on Earth, as a single self-contained .NET library.
+
+Give it two coordinates or two UN/LOCODE port codes and it returns an RFC 7946 GeoJSON `LineString` with the distance, the voyage duration, the ports used and the canals and straits passed through. The Eurostat Marnet shipping network and a world ports database are compressed and embedded in the assembly, so there is nothing to download, configure or host.
+
+```csharp
+using SeaRoute;
+using SeaRoute.Common;
+
+var engine = SeaRouteEngine.Default;
+
+var route = engine.CalculateRoute(
+    new Coordinate(5.333333, 43.333333),    // Marseille  (lon, lat)
+    new Coordinate(18.366667, -33.916667),  // Cape Town
+    new SeaRouteOptions { AppendOriginDestination = true });
+
+Console.WriteLine($"{route.Properties.Length:N0} {route.Properties.Units}, {route.Properties.DurationHours:N0} h");
+// 10,997 km, 247 h
+```
 
 ---
 
-## Features
+## Contents
 
-- ⚡ **Ultra High Performance**: Sub-millisecond routing queries powered by in-memory bidirectional Dijkstra and A* algorithms.
-- 📦 **Zero External Dependencies**: Core library relies strictly on the .NET BCL and `System.Text.Json`.
-- 💾 **Self-Contained Embedded Data**: Compressed GZip datasets embedded directly in assembly (~360 KB total for 9,708 nodes, 31,940 maritime network edges, and 3,955 world ports).
-- 🧭 **Dynamic Passage Restrictions**: Avoid canals or straits like Suez, Panama, Gibraltar, Malacca, Ormuz, Bab-el-Mandeb, etc.
-- ⚓ **Port Resolution & Area Allocation**: Automatic closest port detection, container terminal filtering, country restrictions, and polygon-based preferred port matrix generation.
-- 🌐 **Antimeridian Normalization**: Seamlessly handles trans-Pacific voyages crossing ±180° longitude without map wrapping artifacts.
-- 📏 **Unit Conversions**: Supports kilometers, nautical miles, statute miles, meters, feet, inches, yards, radians, and degrees.
-- 🗺️ **RFC 7946 GeoJSON Output**: Ready to feed into Leaflet, Mapbox, OpenLayers, Deck.gl, or GIS pipelines.
-- 🧵 **Thread-Safe & Scalable**: Fully immutable graph and thread-safe engine designed for high-concurrency cloud workloads.
+- [How it works](#how-it-works)
+- [What you get back](#what-you-get-back)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Options reference](#options-reference)
+- [Performance](#performance)
+- [Repository layout](#repository-layout)
+- [Building, testing and trying it out](#building-testing-and-trying-it-out)
+- [Data](#data)
+- [Licence](#licence)
 
 ---
+
+## How it works
+
+Every request flows through the same pipeline. The two spatial indexes and the graph are built once on first use and shared, immutably, by every thread afterwards.
+
+```mermaid
+flowchart LR
+    subgraph Input
+        A["Origin and destination<br/>coordinates or port codes"]
+        O["SeaRouteOptions<br/>units, speed, restrictions,<br/>ports, algorithm"]
+    end
+
+    subgraph Ports["Port resolution (optional)"]
+        P1["KD-tree over<br/>3,955 world ports"]
+        P2["Area polygons with<br/>weighted preferred ports"]
+    end
+
+    subgraph Graph["Maritime graph (Marnet)"]
+        G1["KD-tree snaps each<br/>endpoint to the nearest<br/>of 9,708 nodes"]
+        G2{"Algorithm"}
+        G3["Bidirectional Dijkstra"]
+        G4["A* with haversine<br/>heuristic"]
+        G5["Edges tagged with a<br/>restricted passage<br/>are skipped"]
+    end
+
+    subgraph Post["Post-processing"]
+        N1["Unwrap longitudes across<br/>the antimeridian"]
+        N2["Collect passages<br/>traversed"]
+        N3["Haversine length in<br/>requested units,<br/>duration at given speed"]
+    end
+
+    R["GeoJSON Feature<br/>LineString + properties"]
+
+    A --> P1
+    O --> P1
+    P1 --> P2
+    P2 --> G1
+    A -. ports disabled .-> G1
+    G1 --> G2
+    G2 -- dijkstra --> G3
+    G2 -- astar --> G4
+    G5 -.-> G3
+    G5 -.-> G4
+    G3 --> N1
+    G4 --> N1
+    N1 --> N2 --> N3 --> R
+```
+
+Key design points:
+
+- **Graph.** 9,708 nodes and 31,940 directed edges stored in a compressed sparse row layout. Edge weights are great-circle kilometres. Edges through canals and straits carry a passage tag.
+- **Search.** Bidirectional Dijkstra by default, A* on request. Both use per-thread, node-indexed scratch arrays with generation stamps, so a query allocates only its result.
+- **Restrictions.** A restricted passage removes its tagged edges from the search. The Northwest Passage is restricted by default. If no path survives, the result has empty geometry and zero length rather than an exception.
+- **Antimeridian.** Trans-Pacific routes are emitted with continuous longitudes, so a map library draws one line instead of a wrap-around artefact.
+- **Ports.** With `IncludePorts`, each endpoint is replaced by its nearest port, optionally filtered to container terminals or a country. Area polygons can name several preferred ports with share weights, in which case one route per port is returned.
+
+## What you get back
+
+`CalculateRoute` returns a `GeoJsonFeature`. `ToJson()` serialises it to standard GeoJSON that Leaflet, Mapbox GL, OpenLayers, deck.gl, QGIS and PostGIS all consume directly.
+
+```mermaid
+classDiagram
+    class GeoJsonFeature {
+        type = "Feature"
+        Geometry : GeoJsonLineString
+        Properties : SeaRouteProperties
+        ToJson(indented) string
+    }
+    class GeoJsonLineString {
+        type = "LineString"
+        Coordinates : [lon, lat][]
+    }
+    class SeaRouteProperties {
+        Length : double
+        Units : string
+        DurationHours : double
+        PortOrigin : Port?
+        PortDest : Port?
+        TraversedPassages : string[]?
+    }
+    class Port {
+        PortCode : string
+        Name : string
+        Country : string
+        IsTerminal : bool
+        Longitude, Latitude
+        Share : double?
+    }
+    GeoJsonFeature --> GeoJsonLineString
+    GeoJsonFeature --> SeaRouteProperties
+    SeaRouteProperties --> Port : origin, dest
+```
+
+Example output for the Persian Gulf to the Caribbean with Suez closed, trimmed for length:
+
+```json
+{
+  "type": "Feature",
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [[52.99, 25.01], [56.4, 26.6], [57.2, 24.4], "...", [-61.87, 17.15]]
+  },
+  "properties": {
+    "length": 19463.2,
+    "units": "km",
+    "duration_hours": 437.9,
+    "traversed_passages": ["ormuz", "south_africa"]
+  }
+}
+```
+
+| Property | Meaning |
+|---|---|
+| `length` | Total route length in the requested unit. |
+| `units` | Unit identifier, for example `km`, `naut`, `mi`. |
+| `duration_hours` | Length divided by vessel speed, default 24 knots. |
+| `port_origin`, `port_dest` | Present when routing by port code or with `IncludePorts`. |
+| `traversed_passages` | Present when `ReturnPassages` is set. Lower-case identifiers listed below. |
 
 ## Installation
 
@@ -26,137 +164,20 @@ Calculates the shortest sea route between any two coordinates or ports on Earth 
 dotnet add package SeaRoute.Net
 ```
 
-Or via `<PackageReference Include="SeaRoute.Net" Version="1.0.0" />`.
+Targets `net8.0` and `net10.0`. The package has no dependencies beyond the base class library and `System.Text.Json`.
 
----
+## Usage
 
-## Quick Start
+### Engine or static facade
 
-### 1. Basic Route Calculation
+`SeaRouteEngine.Default` is a lazily initialised singleton that owns the graph and port index. Register it for dependency injection, or use it directly:
 
 ```csharp
-using SeaRoute;
-using SeaRoute.Common;
-
-// Origin: Marseille (5.33° E, 43.33° N)
-// Destination: Cape Town (18.37° E, -33.92° N)
-var route = SeaRoute.Calculate(
-    origin: new Coordinate(5.333333, 43.333333),
-    destination: new Coordinate(18.366667, -33.916667),
-    appendOrigDest: true
-);
-
-Console.WriteLine($"Distance: {route.Properties.Length:F1} {route.Properties.Units}");
-Console.WriteLine($"Duration: {route.Properties.DurationHours:F1} hours @ 24 knots");
-Console.WriteLine($"GeoJSON: {route.ToJson()}");
+builder.Services.AddSingleton<ISeaRouteEngine>(SeaRouteEngine.Default);
 ```
 
-### 2. Avoiding Canals & Straits (Passage Restrictions)
-
-You can specify passages to avoid. For example, routing around Africa by restricting the Suez canal:
-
 ```csharp
-using SeaRoute;
-using SeaRoute.Common;
-using SeaRoute.Passages;
-
-var route = SeaRoute.Calculate(
-    origin: new Coordinate(52.99, 25.01),     // Persian Gulf
-    destination: new Coordinate(-61.87, 17.15), // Caribbean
-    restrictions: [Passage.Suez],
-    returnPassages: true
-);
-
-// Returns traversed passages: ["ormuz", "south_africa"]
-foreach (var passage in route.Properties.TraversedPassages!)
-{
-    Console.WriteLine($"Traversed: {passage}");
-}
-```
-
-Recognized passages:
-- `Passage.Babalmandab` (Bab-el-Mandeb)
-- `Passage.Bosporus`
-- `Passage.Gibraltar`
-- `Passage.Suez` (Suez Canal)
-- `Passage.Panama` (Panama Canal)
-- `Passage.Ormuz` (Strait of Hormuz)
-- `Passage.Northwest` (Northwest Passage - restricted by default)
-- `Passage.Malacca` (Strait of Malacca)
-- `Passage.Sunda`
-- `Passage.Chili` (Magellan Strait)
-- `Passage.SouthAfrica` (Cape of Good Hope)
-- `Passage.Bering` (Bering Strait)
-
-### 3. Routing Between Ports (UN/LOCODE or Port Codes)
-
-```csharp
-// Le Havre ("FRLEH") to Tianjin ("CNTSN")
-var route = SeaRoute.Calculate("FRLEH", "CNTSN");
-
-Console.WriteLine($"Distance: {route.Properties.Length:N0} km");
-```
-
-### 4. Automatic Port Resolution (`IncludePorts = true`)
-
-Calculate sea routes between inland locations (e.g. Paris to Tokyo) by automatically finding the closest major container terminal:
-
-```csharp
-var route = SeaRoute.Calculate(
-    origin: new Coordinate(2.333333, 48.866667),     // Paris
-    destination: new Coordinate(139.679174, 35.778467), // Tokyo
-    includePorts: true,
-    appendOrigDest: true,
-    portParams: new PortParameters
-    {
-        OnlyTerminals = true // Route only through major cargo terminals
-    }
-);
-
-Console.WriteLine($"Departure Port: {route.Properties.PortOrigin?.Name} ({route.Properties.PortOrigin?.PortCode})");
-Console.WriteLine($"Arrival Port: {route.Properties.PortDest?.Name} ({route.Properties.PortDest?.PortCode})");
-```
-
-### 5. Area Features with Preferred Port Weighting
-
-If an origin area (such as Belgium) has multiple preferred export ports, you can specify polygon boundaries with assigned share weights:
-
-```csharp
-var areaBE = new AreaFeature(
-    coordinates: belgiumBoundaryCoords,
-    name: "BE",
-    preferredPorts:
-    [
-        new PortProps("FRLEH", share: 200),
-        new PortProps("BEANR", share: 250)
-    ]
-);
-
-var options = new SeaRouteOptions
-    {
-    IncludePorts = true,
-    PortParameters = new PortParameters
-    {
-        PortsInAreasFrom = [areaBE]
-    }
-};
-
-// Returns 2 distinct GeoJSON route features (one via Antwerp, one via Le Havre)
-IReadOnlyList<GeoJsonFeature> routes = SeaRoute.CalculateRoutes(brusselsPoint, tokyoPoint, options);
-```
-
-### 6. Dependency Injection Setup
-
-Register `ISeaRouteEngine` in ASP.NET Core `Program.cs`:
-
-```csharp
-builder.Services.AddSingleton<ISeaRouteEngine, SeaRouteEngine>();
-```
-
-Inject and consume:
-
-```csharp
-public class ShippingController(ISeaRouteEngine seaRoute) : ControllerBase
+public sealed class ShippingController(ISeaRouteEngine seaRoute) : ControllerBase
 {
     [HttpGet("route")]
     public IActionResult GetRoute(double fromLon, double fromLat, double toLon, double toLat)
@@ -167,57 +188,156 @@ public class ShippingController(ISeaRouteEngine seaRoute) : ControllerBase
 }
 ```
 
----
-
-## Unit Conversions
-
-Configure distance units and vessel speed:
+The static `SeaRoute.SeaRoute.Calculate(...)` overloads wrap the same engine with named parameters. Because the class shares its name with the namespace, import it statically:
 
 ```csharp
-var route = SeaRoute.Calculate(
-    origin,
-    destination,
-    units: DistanceUnit.NauticalMiles, // Or Miles, Km, Meters, Feet, etc.
-    speedKnots: 20.0
-);
+using static SeaRoute.SeaRoute;
+
+var route = Calculate(origin, destination, appendOrigDest: true);
 ```
 
-| `DistanceUnit` | String Identifier | Description |
+### Avoiding canals and straits
+
+```csharp
+using SeaRoute.Passages;
+
+var route = Calculate(
+    new Coordinate(52.99, 25.01),     // Persian Gulf
+    new Coordinate(-61.87, 17.15),    // Caribbean
+    restrictions: [Passage.Suez],
+    returnPassages: true);
+
+// route.Properties.TraversedPassages == ["ormuz", "south_africa"]
+```
+
+Recognised passages: `Babalmandab`, `Bering`, `Bosporus`, `Chili` (Magellan Strait), `Dardanelles`, `Gibraltar`, `Malacca`, `Northwest` (restricted by default), `Ormuz`, `Panama`, `SouthAfrica` (Cape of Good Hope), `Suez`, `Sunda`.
+
+### Routing between ports
+
+```csharp
+var route = Calculate("FRLEH", "CNTSN");   // Le Havre to Tianjin, UN/LOCODE
+Console.WriteLine($"{route.Properties.PortOrigin!.Name} to {route.Properties.PortDest!.Name}");
+```
+
+### Inland points resolved to the nearest terminal
+
+```csharp
+using SeaRoute.Ports;
+
+var route = Calculate(
+    new Coordinate(2.333333, 48.866667),      // Paris
+    new Coordinate(139.679174, 35.778467),    // Tokyo
+    includePorts: true,
+    appendOrigDest: true,
+    portParams: new PortParameters { OnlyTerminals = true });
+
+// route.Properties.PortOrigin.PortCode == "FRURO" (Rouen), PortDest == "JPTYO"
+```
+
+### Weighted preferred ports per area
+
+```csharp
+var belgium = new AreaFeature(
+    coordinates: belgiumBoundary,
+    name: "BE",
+    preferredPorts: [new PortProps("BEANR", share: 250), new PortProps("FRLEH", share: 200)]);
+
+var routes = SeaRouteEngine.Default.CalculateRoutes(brussels, tokyo, new SeaRouteOptions
+{
+    IncludePorts = true,
+    PortParameters = new PortParameters { PortsInAreasFrom = [belgium] }
+});
+
+// Two features: one via Antwerp (share 0.56), one via Le Havre (share 0.44)
+```
+
+## Options reference
+
+| `SeaRouteOptions` | Default | Description |
 |---|---|---|
-| `DistanceUnit.Km` | `"km"` | Kilometers (Default) |
-| `DistanceUnit.NauticalMiles` | `"naut"` / `"nm"` | Nautical Miles |
-| `DistanceUnit.Miles` | `"mi"` | Statute Miles |
-| `DistanceUnit.Meters` | `"m"` | Meters |
-| `DistanceUnit.Feet` | `"ft"` | Feet |
-| `DistanceUnit.Inches` | `"in"` | Inches |
-| `DistanceUnit.Yards` | `"yd"` | Yards |
-| `DistanceUnit.Degrees` | `"deg"` | Degrees |
-| `DistanceUnit.Radians` | `"rad"` | Radians |
+| `Units` | `Km` | `Km`, `Meters`, `Miles`, `Feet`, `Inches`, `Yards`, `NauticalMiles`, `Degrees`, `Radians`, `Centimeters`. |
+| `SpeedKnots` | `24` | Vessel speed used for `duration_hours`. |
+| `AppendOriginDestination` | `false` | Prepend the exact origin and append the exact destination to the line. |
+| `Restrictions` | `[Northwest]` | Passages whose edges are excluded from the search. |
+| `IncludePorts` | `false` | Route from and to the nearest ports instead of the raw points. |
+| `PortParameters` | `null` | Terminal-only, country filters, strict matching, area polygons. |
+| `ReturnPassages` | `false` | Populate `traversed_passages`. |
+| `Algorithm` | `"dijkstra"` | `"dijkstra"` or `"astar"`. Both return the same path. |
 
----
+## Performance
 
-## Algorithm Options
+BenchmarkDotNet, Release, Apple Silicon, .NET 10. Results include port resolution, search, normalisation and GeoJSON object construction.
 
-By default, routes are calculated using a **Bidirectional Dijkstra** search with custom passage avoidance weights. You can also select the **A\*** algorithm:
+| Scenario | Mean | Allocated |
+|---|---|---|
+| Marseille to Cape Town, bidirectional Dijkstra | 87 µs | 7.6 KB |
+| Marseille to Cape Town, A* | 67 µs | 7.6 KB |
+| Shanghai to Rotterdam, bidirectional Dijkstra | 322 µs | 18.6 KB |
+| Shanghai to Rotterdam, A* | 300 µs | 18.6 KB |
+| Paris to Tokyo with port resolution | 373 µs | 17.0 KB |
+| Nearest-port lookup | 31 ns | 0 B |
 
-```csharp
-var route = SeaRoute.Calculate(origin, destination, algorithm: "astar");
+Cold start, including decompressing and indexing the embedded data, is about 75 ms and happens once per process.
+
+Run the benchmarks yourself:
+
+```bash
+dotnet run -c Release --project benchmarks/SeaRoute.Benchmarks
 ```
 
----
+## Repository layout
 
-## Verification & Tests
+```
+SeaRoute.Net.slnx
+Directory.Build.props
+src/
+  SeaRoute/                 the library, packed as SeaRoute.Net
+    Common/                 Coordinate, Haversine, DistanceUnit, antimeridian normaliser, point-in-polygon
+    Data/                   marnet.json.gz, ports.json.gz and their loader
+    GeoJson/                Feature, LineString and properties types
+    Graph/                  MaritimeGraph, BidirectionalDijkstra, AStar, per-thread search buffers
+    Passages/               passage identifiers
+    Ports/                  Port, PortDatabase, PortParameters, AreaFeature, PortProps
+    Spatial/                2D KD-tree
+    SeaRoute.cs             static facade
+    SeaRouteEngine.cs       ISeaRouteEngine implementation
+    SeaRouteOptions.cs      request options
+  SeaRoute.Sample/          console app exercising every entry point
+tests/
+  SeaRoute.Tests/           xunit suite: routing, passages, ports, KD-tree, units, concurrency
+benchmarks/
+  SeaRoute.Benchmarks/      BenchmarkDotNet routing benchmarks
+```
 
-The test suite in `tests/SeaRoute.Tests` covers:
-- Port queries, terminal filters, and country restrictions.
-- Exact route lengths and coordinate counts across major global shipping lanes (Marseille-Cape Town, Shanghai-Rotterdam, Yokohama-Los Angeles, New York-London).
-- Blocked passage detection (e.g. Singapore to Piraeus with Suez + Gibraltar restricted returning empty coordinates and 0 length).
-- Antimeridian crossing continuity without coordinate jumps.
-- Multi-threaded concurrent execution test across 100 parallel queries.
+## Building, testing and trying it out
 
----
+```bash
+dotnet build SeaRoute.Net.slnx -c Release
+```
 
-## License
+```bash
+dotnet test tests/SeaRoute.Tests
+```
 
-Licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
-Based on Eurostat marnet data.
+```bash
+dotnet run --project src/SeaRoute.Sample
+```
+
+The sample prints eight worked examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes and GeoJSON output. Add `--geojson` to print a full feature.
+
+To produce the NuGet package locally:
+
+```bash
+dotnet pack src/SeaRoute/SeaRoute.csproj -c Release -o ./artifacts
+```
+
+## Data
+
+- **Marnet**, the Eurostat global maritime routing network: 9,708 nodes, 31,940 directed edges, with passage tags on canals and straits.
+- **World ports**: 3,955 ports with UN/LOCODE, name, country, terminal flag and permitted destination countries.
+
+Both are embedded as gzip-compressed JSON, about 360 KB in total, and loaded lazily on first use.
+
+## Licence
+
+Licensed under the [Apache License, Version 2.0](LICENSE).
