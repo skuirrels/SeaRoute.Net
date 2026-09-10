@@ -55,6 +55,16 @@ Every request goes through the same six steps, in order. The datasets are decomp
 5. **Finish the route.** With `AppendOriginDestination` the real endpoints are added, longitudes are unwrapped across the antimeridian, and length and duration are measured: 154 points, 19,560 km, 440 hours at 24 knots.
 6. **Return a GeoJSON Feature**: a LineString for the map plus distance, units, duration, the ports used and the passages traversed.
 
+### Terms
+
+- **Waypoint**: a place you name in a leg by its UN/LOCODE. Pickup places, ports and delivery places are all waypoints. The first and last waypoints of a movement are the pickup and delivery places.
+- **Leg**: the journey between two consecutive waypoints, by one transport mode.
+- **Lane point**: a fixed dot on the sea map, one of 9,708, all on water. The router inserts them between the two waypoints of a sea leg; you never name one.
+- **Lane**: a straight link between two neighbouring lane points. Sea legs travel only along lanes.
+- **Snapping**: moving a waypoint's position to its nearest lane point so a sea leg can start or end on the map, then joining the two with a straight line so the leg still begins and ends at the waypoint.
+- **Choke point**: a lane that runs through a canal or strait, tagged with its name. Thirteen exist. Closing one makes the router route round it.
+- **Straight leg**: a road, rail or air leg. One straight line between its two waypoints, no lane points involved.
+
 Source: [docs/diagrams/routing-pipeline.svg](docs/diagrams/routing-pipeline.svg) (vector) and [routing-pipeline.html](docs/diagrams/routing-pipeline.html).
 
 Key design points:

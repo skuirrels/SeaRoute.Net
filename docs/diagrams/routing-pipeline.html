@@ -53,7 +53,7 @@
     <p class="eyebrow">Architecture · SeaRoute.Net</p>
     <h1>How a route is computed, in six steps</h1>
 
-    <svg viewBox="0 0 1280 464" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="routing-pipeline-title routing-pipeline-desc">
+    <svg viewBox="0 0 1280 580" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="routing-pipeline-title routing-pipeline-desc">
       <title id="routing-pipeline-title">SeaRoute.Net routing pipeline</title>
       <desc id="routing-pipeline-desc">Six numbered steps from left to right: take the request, optionally resolve ports, snap each point to the shipping-lane network, find the shortest path along the lanes avoiding closed passages, finish the route by adding the endpoints and measuring length and time, and return a GeoJSON feature. Two embedded datasets feed the steps: world ports and the Marnet lane network. A strip below follows a Shanghai to London request through every step.</desc>
       <defs>
@@ -181,22 +181,42 @@
       <text x="1088" y="340" fill="#181818" font-size="8" font-family="'Geist Mono', monospace">length · units · duration_hours</text>
       <text x="1088" y="356" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">3,150 characters of JSON</text>
 
+      <!-- Terms strip -->
+      <line x1="40" y1="380" x2="1240" y2="380" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
+      <text x="40" y="400" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">TERMS</text>
+      <text x="40" y="424" fill="#181818" font-size="8" font-weight="600" font-family="'Geist Mono', monospace">WAYPOINT</text>
+      <text x="144" y="424" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">a place you name in a leg by its UN/LOCODE: pickup place, port or delivery place</text>
+      <text x="40" y="440" fill="#181818" font-size="8" font-weight="600" font-family="'Geist Mono', monospace">LEG</text>
+      <text x="144" y="440" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">the journey between two consecutive waypoints, by one transport mode</text>
+      <text x="40" y="456" fill="#181818" font-size="8" font-weight="600" font-family="'Geist Mono', monospace">LANE POINT</text>
+      <text x="144" y="456" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">a fixed dot on the sea map, one of 9,708, all on water; the router inserts</text>
+      <text x="144" y="472" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">them between the two waypoints of a sea leg, you never name one</text>
+      <text x="40" y="488" fill="#181818" font-size="8" font-weight="600" font-family="'Geist Mono', monospace">LANE</text>
+      <text x="144" y="488" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">a straight link between two neighbouring lane points; sea legs travel only along lanes</text>
+      <text x="656" y="424" fill="#181818" font-size="8" font-weight="600" font-family="'Geist Mono', monospace">SNAPPING</text>
+      <text x="760" y="424" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">moving a waypoint to its nearest lane point so a sea leg can start or end on the map,</text>
+      <text x="760" y="440" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">then joining the two with a straight line so the leg still begins and ends at the waypoint</text>
+      <text x="656" y="456" fill="#181818" font-size="8" font-weight="600" font-family="'Geist Mono', monospace">CHOKE POINT</text>
+      <text x="760" y="456" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">a lane through a canal or strait, tagged with its name; 13 exist, closing one routes round it</text>
+      <text x="656" y="472" fill="#181818" font-size="8" font-weight="600" font-family="'Geist Mono', monospace">STRAIGHT LEG</text>
+      <text x="760" y="472" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">a road, rail or air leg: one straight line between its two waypoints, no lane points</text>
+
       <!-- Legend strip -->
-      <line x1="40" y1="404" x2="1240" y2="404" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
-      <text x="40" y="428" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
-      <rect x="128" y="416" width="16" height="12" rx="2" fill="rgba(91,100,114,0.10)" stroke="#6c7484" stroke-width="1"/>
-      <text x="152" y="428" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">INPUT</text>
-      <rect x="248" y="416" width="16" height="12" rx="2" fill="#ffffff" stroke="#181818" stroke-width="1"/>
-      <text x="272" y="428" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">STEP</text>
-      <rect x="368" y="416" width="16" height="12" rx="2" fill="rgba(24,24,24,0.02)" stroke="rgba(24,24,24,0.30)" stroke-width="1" stroke-dasharray="4,3"/>
-      <text x="392" y="428" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">OPTIONAL STEP</text>
-      <rect x="520" y="416" width="16" height="12" rx="2" fill="rgba(10,52,161,0.08)" stroke="#0a34a1" stroke-width="1"/>
-      <text x="544" y="428" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">THE SEARCH ITSELF</text>
-      <rect x="688" y="416" width="16" height="12" rx="2" fill="rgba(24,24,24,0.05)" stroke="#5b6472" stroke-width="1"/>
-      <text x="712" y="428" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">EMBEDDED DATASET</text>
-      <line x1="856" y1="422" x2="888" y2="422" stroke="#1c4178" stroke-width="1.2" marker-end="url(#arrow-link)"/>
-      <text x="896" y="428" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">RESULT</text>
-      <text x="1000" y="428" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">01 → 06 STEPS RUN IN ORDER</text>
+      <line x1="40" y1="520" x2="1240" y2="520" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
+      <text x="40" y="544" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
+      <rect x="128" y="532" width="16" height="12" rx="2" fill="rgba(91,100,114,0.10)" stroke="#6c7484" stroke-width="1"/>
+      <text x="152" y="544" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">INPUT</text>
+      <rect x="248" y="532" width="16" height="12" rx="2" fill="#ffffff" stroke="#181818" stroke-width="1"/>
+      <text x="272" y="544" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">STEP</text>
+      <rect x="368" y="532" width="16" height="12" rx="2" fill="rgba(24,24,24,0.02)" stroke="rgba(24,24,24,0.30)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="392" y="544" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">OPTIONAL STEP</text>
+      <rect x="520" y="532" width="16" height="12" rx="2" fill="rgba(10,52,161,0.08)" stroke="#0a34a1" stroke-width="1"/>
+      <text x="544" y="544" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">THE SEARCH ITSELF</text>
+      <rect x="688" y="532" width="16" height="12" rx="2" fill="rgba(24,24,24,0.05)" stroke="#5b6472" stroke-width="1"/>
+      <text x="712" y="544" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">EMBEDDED DATASET</text>
+      <line x1="856" y1="538" x2="888" y2="538" stroke="#1c4178" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+      <text x="896" y="544" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">RESULT</text>
+      <text x="1000" y="544" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">01 → 06 STEPS RUN IN ORDER</text>
     </svg>
   </div>
 </body>
