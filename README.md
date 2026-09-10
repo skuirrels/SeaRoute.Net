@@ -62,38 +62,11 @@ Key design points:
 
 `CalculateRoute` returns a `GeoJsonFeature`. `ToJson()` serialises it to standard GeoJSON that Leaflet, Mapbox GL, OpenLayers, deck.gl, QGIS and PostGIS all consume directly.
 
-```mermaid
-classDiagram
-    class GeoJsonFeature {
-        type = "Feature"
-        Geometry : GeoJsonLineString
-        Properties : SeaRouteProperties
-        ToJson(indented) string
-    }
-    class GeoJsonLineString {
-        type = "LineString"
-        Coordinates : [lon, lat][]
-    }
-    class SeaRouteProperties {
-        Length : double
-        Units : string
-        DurationHours : double
-        PortOrigin : Port?
-        PortDest : Port?
-        TraversedPassages : string[]?
-    }
-    class Port {
-        PortCode : string
-        Name : string
-        Country : string
-        IsTerminal : bool
-        Longitude, Latitude
-        Share : double?
-    }
-    GeoJsonFeature --> GeoJsonLineString
-    GeoJsonFeature --> SeaRouteProperties
-    SeaRouteProperties --> Port : origin, dest
-```
+<p align="center">
+  <img src="docs/diagrams/output-model.png" alt="SeaRoute.Net output model: a GeoJsonFeature holds a GeoJsonLineString geometry and SeaRouteProperties with length, units, duration, traversed passages and optional origin and destination Port entities" width="100%">
+</p>
+
+Source: [docs/diagrams/output-model.svg](docs/diagrams/output-model.svg) (vector) and [output-model.html](docs/diagrams/output-model.html).
 
 Example output for the Persian Gulf to the Caribbean with Suez closed, trimmed for length:
 
