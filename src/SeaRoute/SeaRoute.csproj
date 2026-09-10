@@ -11,11 +11,16 @@
     <Authors>eDC team</Authors>
     <Description>High-performance .NET maritime shortest-path routing library based on Eurostat marnet data.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/skuirrels/SeaRoute.Net</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/skuirrels/SeaRoute.Net</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>maritime;searoute;routing;geospatial;ports;geojson;dijkstra;eurostat</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Data\*.gz" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
