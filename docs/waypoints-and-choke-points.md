@@ -16,7 +16,7 @@ SeaRoute.Net routes one transport mode, deep-sea shipping on the Eurostat Marnet
 
 Two other straight-line elements exist. The leg that joins an inland origin or destination to its nearest port when `AppendOriginDestination` is set, and the road, rail and air legs of a movement, whatever their kind. Neither is checked against land.
 
-Movement legs are written one per line, `Pickup GBLGW to Port GBFXT Road`, and parsed by `MovementParser`. Location codes resolve against caller-supplied coordinates first, then the embedded port list when UN/LOCODE agrees on the name, then the embedded UN/LOCODE list where it carries coordinates, then an `ILocationResolver`. UN/LOCODE has no coordinates for about a fifth of its entries, Gatwick (GBLGW) among them, and those must be supplied. Sea legs in a movement always include their resolved endpoints (2.3), so consecutive legs join. A sea leg with no route under the restrictions raises an error naming the leg instead of contributing an empty line.
+Movement legs are written one per line, `Pickup GBLGW to Port GBFXT Road`, and parsed by `MovementParser`. Location codes resolve against caller-supplied coordinates first, then the embedded port list when UN/LOCODE agrees on the name, then the embedded UN/LOCODE list where it carries coordinates, then an `ILocationResolver`. UN/LOCODE has no coordinates for about a fifth of its entries; a small supplement file in the library fills a few of those from cited sources, and the rest must be supplied by the caller. Sea legs in a movement always include their resolved endpoints (2.3), so consecutive legs join. A sea leg with no route under the restrictions raises an error naming the leg instead of contributing an empty line.
 
 ## 2. Waypoint types
 

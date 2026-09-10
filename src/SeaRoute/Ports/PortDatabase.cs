@@ -61,7 +61,7 @@ public sealed class PortDatabase
         bool onlyTerminals = false,
         string? country = null,
         string? toCountry = null,
-        bool strict = false)
+        bool strict = true)
     {
         // Fast path: when no filters are requested, query the 2D KD-Tree directly in O(log N)
         if (!onlyTerminals && string.IsNullOrWhiteSpace(country) && string.IsNullOrWhiteSpace(toCountry))
@@ -187,7 +187,9 @@ public sealed class PortDatabase
             }
             else
             {
-                var customCoord = pref.TryGetCoordinate() ?? point;
+                var customCoord = pref.TryGetCoordinate()
+                    ?? throw new ArgumentException(
+                        $"Preferred port '{pref.PortId}' in area '{smallestArea.Name}' is not in the port list and has no x/y in its props.");
                 resolvedPort = new Port
                 {
                     PortCode = pref.PortId,

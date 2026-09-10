@@ -103,27 +103,28 @@ Print("9. Shanghai to London, step by step",
     $"   result         GeoJSON Feature, {finished.ToJson().Length:N0} characters");
 
 // 10 to 12. Multi-leg movements, one leg per line. Sea legs are routed; road and air legs are straight lines.
-//    Every code here resolves from the embedded port list or UN/LOCODE list, so no coordinates are supplied.
-//    UN/LOCODE publishes no coordinates for about a fifth of its codes (Gatwick GBLGW, for one); pass those
-//    in the coordinates argument or use codes that carry them, as these examples do.
+//    Every code resolves from the embedded port list or UN/LOCODE list, so no coordinates are supplied.
+//    Gatwick (GBLGW), Shanghai Railway Station (CNSHZ) and Melrose (AUMRS) have no coordinates in the UNECE
+//    list; the library's supplement file fills them from cited sources. AUMRS is Melrose, an inland South
+//    Australian town about 800 km from Melbourne, so its delivery leg is by road.
 
 PrintMovement("10. Movement with one sea leg", """
-    Pickup GBSLO to Port GBFXT Road
+    Pickup GBLGW to Port GBFXT Road
     Port GBFXT to Port CNSHG Sea
-    Delivery from port CNSHG to port CNSZP Sea
+    Delivery from port CNSHG to place CNSHZ Sea
     """);
 
 PrintMovement("11. Movement with several sea legs, a light 12 t load in one 40-foot container", """
-    Pickup GBSLO to Port GBFXT Road
+    Pickup GBLGW to Port GBFXT Road
     Port GBFXT to Port SGSIN Sea
     Port SGSIN to Port AUMEL Sea
-    Delivery from port AUMEL to place AUALT Road
+    Delivery from port AUMEL to place AUMRS Road
     """, tonnes: 12.0, teu: 2.0);
 
 PrintMovement("12. Movement with an air leg", """
-    Pickup GBSLO to Airport GBLHR Road
+    Pickup GBLGW to Airport GBLHR Road
     Airport GBLHR to Airport AUMEL Air
-    Delivery from airport AUMEL to place AUALT Road
+    Delivery from airport AUMEL to place AUMRS Road
     """);
 
 static void PrintMovement(string title, string legs, double tonnes = 20.0, double? teu = null)

@@ -35,7 +35,8 @@ public enum LocationFunctions
 /// <param name="Name">Location name without diacritics.</param>
 /// <param name="Coordinate">Position to one minute of arc, or null when UNECE publishes none.</param>
 /// <param name="Functions">Recorded functions.</param>
-public sealed record UnLocode(string Code, string Name, Coordinate? Coordinate, LocationFunctions Functions)
+/// <param name="CoordinateSource">"UNECE" when the position comes from the code list, otherwise the researched source named in the supplement file; empty when there is no position.</param>
+public sealed record UnLocode(string Code, string Name, Coordinate? Coordinate, LocationFunctions Functions, string CoordinateSource = "")
 {
     /// <summary>Two-letter ISO country code, the first two characters of the code.</summary>
     public string Country => Code[..2];

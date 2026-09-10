@@ -105,9 +105,9 @@ public static class DistanceUnitExtensions
         DistanceUnit.Miles => 1.15078,
         DistanceUnit.Feet => 6076.12,
         DistanceUnit.Inches => 72913.4,
-        DistanceUnit.Degrees => 1.852,
+        DistanceUnit.Degrees => 1852.0 / 111325.0,
         DistanceUnit.Centimeters => 185200.0,
-        DistanceUnit.Radians => 1.852,
+        DistanceUnit.Radians => 1852.0 / AvgEarthRadiusMeters,
         DistanceUnit.NauticalMiles => 1.0,
         DistanceUnit.Yards => 2025.37,
         _ => 1.0

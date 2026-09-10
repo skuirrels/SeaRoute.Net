@@ -14,19 +14,19 @@ public class MovementTests
         Delivery from port CNSHG to place CNSHZ Sea
         """;
 
+    // AUMRS is Melrose, an inland South Australian town 800 km from Melbourne, so its delivery leg is by road.
     private const string MelbourneMovement = """
         Pickup GBLGW to Port GBFXT Road
         Port GBFXT to Port SGSIN Sea
         Port SGSIN to Port AUMEL Sea
-        Delivery from port AUMEL to place AUMRS Sea
+        Delivery from port AUMEL to place AUMRS Road
         """;
 
-    // Codes the caller must supply: UN/LOCODE lists them but publishes no coordinates for them.
+    // Real coordinates for codes UNECE publishes without any, used only to exercise caller overrides.
     private static readonly Dictionary<string, Coordinate> ExtraPlaces = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["GBLGW"] = new Coordinate(-0.190278, 51.148056),   // London Gatwick
-        ["CNSHZ"] = new Coordinate(121.4737, 31.2304),      // Shanghai Railway Station
-        ["AUMRS"] = new Coordinate(145.13, -37.92)          // Melrose, placeholder near Melbourne
+        ["GBLON"] = new Coordinate(-0.1276, 51.5072),   // London
+        ["AUDND"] = new Coordinate(145.2100, -37.9900)  // Dandenong
     };
 
     [Fact]
@@ -65,7 +65,7 @@ public class MovementTests
     [Fact]
     public void Movement_ThreeLegs_RoadIsStraightAndSeaIsRouted()
     {
-        var result = SeaRouter.CalculateMovement(ShanghaiMovement, ExtraPlaces);
+        var result = SeaRouter.CalculateMovement(ShanghaiMovement);
 
         result.Legs.Should().HaveCount(3);
         result.Units.Should().Be("km");
@@ -102,10 +102,10 @@ public class MovementTests
     [Fact]
     public void Movement_FourLegs_ProducesFeatureCollectionWithLegMetadata()
     {
-        var result = SeaRouter.CalculateMovement(MelbourneMovement, ExtraPlaces);
+        var result = SeaRouter.CalculateMovement(MelbourneMovement);
 
         result.Legs.Should().HaveCount(4);
-        result.Legs.Count(l => l.Leg.Mode == TransportMode.Sea).Should().Be(3);
+        result.Legs.Count(l => l.Leg.Mode == TransportMode.Sea).Should().Be(2);
 
         string json = result.ToJson();
         using var doc = JsonDocument.Parse(json);
@@ -129,7 +129,7 @@ public class MovementTests
     [Fact]
     public void Movement_ConsecutiveLegsJoinEndToEnd()
     {
-        var result = SeaRouter.CalculateMovement(MelbourneMovement, ExtraPlaces);
+        var result = SeaRouter.CalculateMovement(MelbourneMovement);
 
         for (int i = 0; i < result.Legs.Count - 1; i++)
         {
@@ -143,8 +143,8 @@ public class MovementTests
     [Fact]
     public void Movement_ShortSeaLegSnappingToOneNode_StillHasLength()
     {
-        // Melbourne port and a placeholder a few kilometres away snap to the same Marnet node.
-        var result = SeaRouter.CalculateMovement("Delivery from port AUMEL to place AUMRS Sea", ExtraPlaces);
+        // Melbourne port and Altona, 10 km away, snap to the same Marnet node.
+        var result = SeaRouter.CalculateMovement("Delivery from port AUMEL to place AUALT Sea");
 
         var leg = result.Legs[0];
         leg.Feature.Geometry.Coordinates.Count.Should().BeGreaterThanOrEqualTo(2);
@@ -163,9 +163,33 @@ public class MovementTests
     [Fact]
     public void Movement_CodeKnownToUnLocodeButUncoordinated_ThrowsWithItsName()
     {
-        var act = () => SeaRouter.CalculateMovement("Pickup GBLGW to Port GBFXT Road");
+        // AUDND is Dandenong: UNECE lists it without coordinates and it is not in the port list.
+        var act = () => SeaRouter.CalculateMovement("Delivery from port AUMEL to place AUDND Road");
 
-        act.Should().Throw<ArgumentException>().WithMessage("*GBLGW*Gatwick*airport*no coordinates*");
+        act.Should().Throw<ArgumentException>().WithMessage("*AUDND*Dandenong*no coordinates*");
+    }
+
+    [Fact]
+    public void Movement_SupplementedCoordinates_ResolveWithTheirSource()
+    {
+        var gatwick = SeaRouteEngine.Default.UnLocodes.GetByCode("GBLGW")!;
+        gatwick.Coordinate.Should().NotBeNull("the supplement file fills Gatwick");
+        gatwick.CoordinateSource.Should().StartWith("Wikipedia");
+
+        var melrose = SeaRouteEngine.Default.UnLocodes.GetByCode("AUMRS")!;
+        melrose.Coordinate!.Value.Latitude.Should().BeApproximately(-32.817, 0.01, "Melrose is in South Australia, not near Melbourne");
+
+        SeaRouteEngine.Default.UnLocodes.GetByCode("SGSIN")!.CoordinateSource.Should().Be("UNECE");
+    }
+
+    [Fact]
+    public void Movement_PortListWinsWhenNamesAgreeByPrefix()
+    {
+        // UN/LOCODE names CNTSN "Tianjin Binhai International Apt" without coordinates; the port list has "Tianjin".
+        var result = SeaRouter.CalculateMovement("Port FRLEH to Port CNTSN Sea");
+
+        result.Legs[0].To.Source.Should().Be("ports");
+        result.Legs[0].To.Port!.Name.Should().Be("Tianjin");
     }
 
     [Fact]
@@ -194,20 +218,22 @@ public class MovementTests
     [Fact]
     public void Movement_UsesResolverForUnknownCodes()
     {
-        var request = new MovementRequest { Legs = MovementParser.Parse("Pickup GBLGW to Port GBFXT Road") };
-        request.Resolver = new StubResolver(("GBLGW", new Coordinate(-0.190278, 51.148056), "Gatwick"));
+        // XXLON is in neither embedded list, so only the resolver can place it.
+        var request = new MovementRequest { Legs = MovementParser.Parse("Pickup XXLON to Port GBFXT Road") };
+        request.Resolver = new StubResolver(("XXLON", ExtraPlaces["GBLON"], "London"));
 
         var result = SeaRouteEngine.Default.CalculateMovement(request);
 
-        result.Legs[0].From.Name.Should().Be("Gatwick");
-        result.Legs[0].Length.Should().BeInRange(120.0, 160.0);
+        result.Legs[0].From.Source.Should().Be("resolver");
+        result.Legs[0].From.Name.Should().Be("London");
+        result.Legs[0].Length.Should().BeInRange(100.0, 140.0);
     }
 
     [Fact]
     public void Movement_HonoursUnitsAndModeSpeeds()
     {
-        var request = new MovementRequest { Legs = MovementParser.Parse("Pickup GBLGW to Port GBFXT Rail") };
-        request.Coordinates["GBLGW"] = ExtraPlaces["GBLGW"];
+        var request = new MovementRequest { Legs = MovementParser.Parse("Pickup GBLON to Port GBFXT Rail") };
+        request.Coordinates["GBLON"] = ExtraPlaces["GBLON"];
         request.SeaOptions = new SeaRouteOptions { Units = DistanceUnit.NauticalMiles };
         request.SpeedsKmh[TransportMode.Rail] = 100.0;
 
@@ -271,8 +297,8 @@ public class MovementTests
     [Fact]
     public void Movement_InvalidSuppliedCoordinate_ThrowsForStraightLegs()
     {
-        var request = new MovementRequest { Legs = MovementParser.Parse("Pickup GBLGW to Port GBFXT Road") };
-        request.Coordinates["GBLGW"] = new Coordinate(-0.19, 951.1);
+        var request = new MovementRequest { Legs = MovementParser.Parse("Pickup GBLON to Port GBFXT Road") };
+        request.Coordinates["GBLON"] = new Coordinate(-0.19, 951.1);
 
         var act = () => SeaRouteEngine.Default.CalculateMovement(request);
 
@@ -282,12 +308,13 @@ public class MovementTests
     [Fact]
     public void Movement_LowerCaseCoordinateKeys_Resolve()
     {
-        var request = new MovementRequest { Legs = MovementParser.Parse("Pickup GBLGW to Port GBFXT Road") };
-        request.Coordinates["gblgw"] = ExtraPlaces["GBLGW"];
+        var request = new MovementRequest { Legs = MovementParser.Parse("Pickup GBLON to Port GBFXT Road") };
+        request.Coordinates["gblon"] = ExtraPlaces["GBLON"];
 
         var result = SeaRouteEngine.Default.CalculateMovement(request);
 
-        result.Legs[0].Length.Should().BeInRange(120.0, 160.0);
+        result.Legs[0].From.Source.Should().Be("coordinates");
+        result.Legs[0].Length.Should().BeInRange(100.0, 140.0);
     }
 
     [Fact]
@@ -333,8 +360,9 @@ public class MovementTests
     public void SingleRoute_EndpointsSnappingToOneNode_ReturnsTwoPointLine()
     {
         var melbourne = SeaRouteEngine.Default.Ports.GetByCode("AUMEL")!.Coordinate;
+        var altona = SeaRouteEngine.Default.UnLocodes.GetByCode("AUALT")!.Coordinate!.Value;
 
-        var route = SeaRouter.Calculate(melbourne, ExtraPlaces["AUMRS"]);
+        var route = SeaRouter.Calculate(melbourne, altona);
 
         route.Geometry.Coordinates.Should().HaveCount(2);
         route.Properties.Length.Should().BeInRange(5.0, 60.0);
@@ -367,10 +395,6 @@ public class MovementTests
                 """),
             SeaOptions = new SeaRouteOptions { ReturnPassages = true }
         };
-        request.Coordinates["GBLGW"] = ExtraPlaces["GBLGW"];
-        request.Coordinates["GBLHR"] = new Coordinate(-0.4543, 51.4700);   // Heathrow
-        request.Coordinates["AUMRS"] = ExtraPlaces["AUMRS"];
-
         var result = SeaRouteEngine.Default.CalculateMovement(request);
 
         var flight = result.Legs[1];
@@ -399,7 +423,7 @@ public class MovementTests
     [Fact]
     public void Emissions_PerLegAndTotals_FollowIntensityTimesDistance()
     {
-        var result = SeaRouter.CalculateMovement(MelbourneMovement, ExtraPlaces, cargoTonnes: 20.0);
+        var result = SeaRouter.CalculateMovement(MelbourneMovement, cargoTonnes: 20.0);
 
         var road = result.Legs[0];
         road.Co2eGramsPerTonneKm.Should().Be(92.0);
@@ -448,7 +472,6 @@ public class MovementTests
     public void Emissions_CustomFactorsAreHonoured()
     {
         var request = new MovementRequest { Legs = MovementParser.Parse("Pickup GBLGW to Port GBFXT Road") };
-        request.Coordinates["GBLGW"] = ExtraPlaces["GBLGW"];
         request.Emissions = new EmissionFactors { RoadGramsPerTonneKm = 50.0 };
 
         var result = SeaRouteEngine.Default.CalculateMovement(request);
@@ -459,7 +482,7 @@ public class MovementTests
     [Fact]
     public void Emissions_SeaLegsUsePerTeuRateWhenTeuIsGiven()
     {
-        var result = SeaRouter.CalculateMovement(MelbourneMovement, ExtraPlaces, cargoTonnes: 12.0, cargoTeu: 2.0);
+        var result = SeaRouter.CalculateMovement(MelbourneMovement, cargoTonnes: 12.0, cargoTeu: 2.0);
 
         var sea = result.Legs[1];
         sea.Co2eBasis.Should().Be("teu");
@@ -483,7 +506,7 @@ public class MovementTests
     [Fact]
     public void Emissions_TeuOnly_InfersAverageWeightForNonSeaLegs()
     {
-        var result = SeaRouter.CalculateMovement(MelbourneMovement, ExtraPlaces, cargoTeu: 1.0);
+        var result = SeaRouter.CalculateMovement(MelbourneMovement, cargoTeu: 1.0);
 
         var road = result.Legs[0];
         road.Co2eBasis.Should().Be("teu_average_weight");
@@ -496,7 +519,7 @@ public class MovementTests
     [Fact]
     public void Time_SeaLegsAddPortDwellAtEachEnd_AndDefaultSpeedIsSixteenKnots()
     {
-        var result = SeaRouter.CalculateMovement(MelbourneMovement, ExtraPlaces);
+        var result = SeaRouter.CalculateMovement(MelbourneMovement);
 
         var road = result.Legs[0];
         road.PortHours.Should().Be(0.0);
@@ -507,7 +530,7 @@ public class MovementTests
         sea.TransitHours.Should().BeApproximately(sea.DurationHours + 48.0, 1e-9);
         sea.DurationHours.Should().BeApproximately(sea.Length / (16.0 * 1.852), 1e-6, "steaming at 16 knots");
 
-        result.TotalPortHours.Should().Be(3 * 48.0);
+        result.TotalPortHours.Should().Be(2 * 48.0);
         result.TotalTransitHours.Should().BeApproximately(result.TotalDurationHours + result.TotalPortHours, 1e-9);
         // UK to Melbourne via Singapore should land inside the 38 to 50 day range quoted by forwarders.
         (result.TotalTransitHours / 24.0).Should().BeInRange(30.0, 50.0);

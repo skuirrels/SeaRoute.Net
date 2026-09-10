@@ -17,8 +17,11 @@ public sealed class PortParameters
     /// <summary>Whether destination country restriction is enforced against allowed countries.</summary>
     public bool CountryRestricted { get; set; }
 
-    /// <summary>Whether to strictly require an exact match for country filters.</summary>
-    public bool Strict { get; set; }
+    /// <summary>
+    /// When true, the default, a terminal or country filter that matches no port yields no port, and the route
+    /// falls back to the raw coordinates. When false the filter is dropped and the nearest port of any kind is used.
+    /// </summary>
+    public bool Strict { get; set; } = true;
 
     /// <summary>Whether point must be strictly inside an area polygon (default: true).</summary>
     public bool StrictArea { get; set; } = true;

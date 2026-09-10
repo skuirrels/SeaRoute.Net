@@ -45,7 +45,7 @@
   <rect x="500" y="64" width="200" height="48" rx="24" fill="#f6f7f8"/>
   <rect x="500" y="64" width="200" height="48" rx="24" fill="rgba(91,100,114,0.10)" stroke="#6c7484" stroke-width="1"/>
   <text x="600" y="86" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Leg lines</text>
-  <text x="600" y="100" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Pickup GBSLO to Port GBFXT Road …</text>
+  <text x="600" y="100" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Pickup GBLGW to Port GBFXT Road …</text>
 
   <!-- Parse legs -->
   <rect x="500" y="152" width="200" height="56" rx="6" fill="#f6f7f8"/>
@@ -99,27 +99,27 @@
   <!-- Worked examples -->
   <line x1="40" y1="800" x2="1160" y2="800" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
   <text x="40" y="820" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">WORKED EXAMPLE A · UK TO MELBOURNE, 12 T IN ONE 40-FOOT CONTAINER</text>
-  <text x="40" y="844" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Pickup GBSLO to Port GBFXT Road</text>
+  <text x="40" y="844" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Pickup GBLGW to Port GBFXT Road</text>
   <text x="40" y="860" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Port GBFXT to Port SGSIN Sea</text>
   <text x="40" y="876" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Port SGSIN to Port AUMEL Sea</text>
-  <text x="40" y="892" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Delivery from port AUMEL to place AUALT Road</text>
-  <text x="40" y="924" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">every code resolves from the embedded lists</text>
+  <text x="40" y="892" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Delivery from port AUMEL to place AUMRS Road</text>
+  <text x="40" y="924" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">all codes from the embedded lists; GBLGW and AUMRS via the supplement</text>
   <text x="480" y="844" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Leg  Kind      Mode  From   To      Distance  Transit h  CO2e kg  Choke points</text>
-  <text x="480" y="860" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">1    Pickup    Road  GBSLO  GBFXT      143 km        2.4      158</text>
+  <text x="480" y="860" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">1    Pickup    Road  GBLGW  GBFXT      139 km        2.3      154</text>
   <text x="480" y="876" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">2    Main      Sea   GBFXT  SGSIN   15,402 km      567.8    2,341  Gibraltar, Suez, Bab-el-Mandeb, Malacca</text>
   <text x="480" y="892" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">3    Main      Sea   SGSIN  AUMEL    7,300 km      294.4    1,110  Sunda</text>
-  <text x="480" y="908" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">4    Delivery  Road  AUMEL  AUALT       10 km        0.2       11</text>
-  <text x="480" y="924" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" font-weight="600" xml:space="preserve">Total                               22,855 km      864.7    3,620  = 36.0 days</text>
-  <text x="480" y="940" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Transit = 768.7 h travelling + 96 h in port, 24 h at each end of the two sea legs</text>
+  <text x="480" y="908" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">4    Delivery  Road  AUMEL  AUMRS      829 km       13.8      915  Melrose SA, 800 km inland</text>
+  <text x="480" y="924" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" font-weight="600" xml:space="preserve">Total                               23,670 km      878.3    4,520  = 36.6 days</text>
+  <text x="480" y="940" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Transit = 782.3 h travelling + 96 h in port, 24 h at each end of the two sea legs</text>
   <text x="40" y="988" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">WORKED EXAMPLE B · A MOVEMENT WITH AN AIR LEG, 20 T</text>
-  <text x="40" y="1012" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Pickup GBSLO to Airport GBLHR Road</text>
+  <text x="40" y="1012" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Pickup GBLGW to Airport GBLHR Road</text>
   <text x="40" y="1028" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Airport GBLHR to Airport AUMEL Air</text>
-  <text x="40" y="1044" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Delivery from airport AUMEL to place AUALT Road</text>
+  <text x="40" y="1044" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Delivery from airport AUMEL to place AUMRS Road</text>
   <text x="480" y="1012" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Leg  Kind      Mode  From   To      Distance  Transit h  CO2e kg  Choke points</text>
-  <text x="480" y="1028" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">1    Pickup    Road  GBSLO  GBLHR       11 km        0.2       20  none, straight line</text>
+  <text x="480" y="1028" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">1    Pickup    Road  GBLGW  GBLHR       40 km        0.7       73  none, straight line</text>
   <text x="480" y="1044" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">2    Main      Air   GBLHR  AUMEL   16,927 km       21.2  213,283  none, straight great-circle line, no lane points</text>
-  <text x="480" y="1060" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">3    Delivery  Road  AUMEL  AUALT       10 km        0.2       19  none, straight line</text>
-  <text x="480" y="1076" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" font-weight="600" xml:space="preserve">Total                               16,948 km       21.5  213,319  no port time on road or air legs</text>
+  <text x="480" y="1060" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">3    Delivery  Road  AUMEL  AUMRS      829 km       13.8    1,526  none, straight line</text>
+  <text x="480" y="1076" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" font-weight="600" xml:space="preserve">Total                               17,796 km       35.6  214,879  no port time on road or air legs</text>
 
   <!-- Legend strip -->
   <line x1="40" y1="1120" x2="1160" y2="1120" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>

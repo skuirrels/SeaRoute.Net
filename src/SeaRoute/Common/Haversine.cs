@@ -6,7 +6,7 @@ namespace SeaRoute.Common;
 public static class Haversine
 {
     private const double AvgEarthRadiusMeters = 6371008.8;
-    private const double EarthRadiusKm = 6371.0;
+    private const double EarthRadiusKm = AvgEarthRadiusMeters / 1000.0;
 
     /// <summary>
     /// Calculates the great circle distance between two coordinates in the specified distance unit.

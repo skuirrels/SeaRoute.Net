@@ -68,6 +68,7 @@ public static class EmbeddedResources
         using var gzipStream = new GZipStream(rawStream, CompressionMode.Decompress);
         using var doc = JsonDocument.Parse(gzipStream);
 
+        var supplement = LoadUnLocodeSupplement();
         var entries = new List<UnLocode>(110_000);
         foreach (var item in doc.RootElement.EnumerateArray())
         {
@@ -77,10 +78,41 @@ public static class EmbeddedResources
                 ? new Coordinate(item[2].GetDouble(), item[3].GetDouble())
                 : null;
             var functions = (LocationFunctions)item[4].GetInt32();
-            entries.Add(new UnLocode(code, name, coordinate, functions));
+            string coordinateSource = coordinate.HasValue ? "UNECE" : "";
+
+            // The supplement only fills codes UNECE publishes without coordinates; it never overrides UNECE.
+            if (!coordinate.HasValue && supplement.TryGetValue(code, out var extra))
+            {
+                coordinate = extra.Coordinate;
+                coordinateSource = extra.Source;
+            }
+
+            entries.Add(new UnLocode(code, name, coordinate, functions, coordinateSource));
         }
 
         return new UnLocodeDatabase(entries);
+    }
+
+    /// <summary>
+    /// Loads unlocode-supplement.json: researched coordinates for codes that UNECE publishes without any,
+    /// each with the source it was taken from.
+    /// </summary>
+    private static Dictionary<string, (Coordinate Coordinate, string Source)> LoadUnLocodeSupplement()
+    {
+        var result = new Dictionary<string, (Coordinate, string)>(StringComparer.OrdinalIgnoreCase);
+        using var stream = CurrentAssembly.GetManifestResourceStream("SeaRoute.Data.unlocode-supplement.json");
+        if (stream == null)
+            return result;
+
+        using var doc = JsonDocument.Parse(stream);
+        foreach (var item in doc.RootElement.EnumerateArray())
+        {
+            string code = item.GetProperty("code").GetString() ?? "";
+            var coordinate = new Coordinate(item.GetProperty("lon").GetDouble(), item.GetProperty("lat").GetDouble());
+            string source = item.GetProperty("source").GetString() ?? "supplement";
+            result[code] = (coordinate, source);
+        }
+        return result;
     }
 
     /// <summary>

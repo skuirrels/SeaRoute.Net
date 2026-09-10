@@ -222,14 +222,14 @@ Source: [docs/diagrams/movement-flow.svg](docs/diagrams/movement-flow.svg) (vect
 using SeaRoute.Movements;
 
 const string legs = """
-    Pickup GBSLO to Port GBFXT Road
+    Pickup GBLGW to Port GBFXT Road
     Port GBFXT to Port SGSIN Sea
     Port SGSIN to Port AUMEL Sea
-    Delivery from port AUMEL to place AUALT Road
+    Delivery from port AUMEL to place AUMRS Road
     """;
 
-// Every code resolves from the embedded port list or UN/LOCODE list. For a code UN/LOCODE leaves
-// uncoordinated, pass a dictionary of coordinates as the second argument.
+// Every code resolves from the embedded port list or UN/LOCODE list. For a code neither list can place,
+// pass a dictionary of coordinates as the second argument.
 var movement = SeaRouter.CalculateMovement(legs);
 
 foreach (var leg in movement.Legs)
@@ -249,7 +249,7 @@ Codes resolve in this order:
 4. The port list anyway, for codes UN/LOCODE lacks coordinates for.
 5. An `ILocationResolver`, if one is set.
 
-Each resolved location reports its `Source`. UN/LOCODE publishes no coordinates for about a fifth of its entries, including Gatwick (`GBLGW`), Felixstowe (`GBFXT`, covered by the port list) and Shanghai Railway Station (`CNSHZ`), so such codes still need a caller coordinate. The error for an uncoordinated code names the place and its functions; an unknown code throws an `ArgumentException` naming the code rather than guessing.
+Each resolved location reports its `Source`. UN/LOCODE publishes no coordinates for about a fifth of its entries. A small supplement file, [unlocode-supplement.json](src/SeaRoute/Data/unlocode-supplement.json), fills a few of those from cited sources and records the source on the entry; it never overrides UNECE. Codes that neither list can place still need a caller coordinate, and the error for one names the place and its functions. An unknown code throws an `ArgumentException` naming the code rather than guessing.
 
 ### Time
 
@@ -295,6 +295,21 @@ Pass `cargoTeu` as well for containerised sea freight. Sea legs are then charged
 
 Source: Smart Freight Centre, [GLEC Framework, July 2022 edition](https://smart-freight-centre-media.s3.amazonaws.com/documents/2019_GLEC_Framework_July_2022.pdf), Module 2. These are defaults for when carrier data is unavailable; the sea figure assumes an average dry container on an unknown trade lane, and reefer or trade-lane-specific values differ. Set `MovementRequest.Emissions` to your own `EmissionFactors` to override any of them.
 
+## Known limitations and judgement calls
+
+Everything here is deliberate and documented, but each is a simplification you should know about.
+
+- **Port list versus UN/LOCODE tie-break.** When both lists know a code, the port list position is used only if the two names match or one is a prefix of the other after stripping accents and punctuation. If they disagree, UN/LOCODE's position is used and no port record is attached. Check `Source` on the resolved location when it matters.
+- **Supplemented coordinates.** Four codes have coordinates researched by hand rather than published by UNECE; the supplement file names each source.
+- **Port list provenance.** The 3,955-port list is inherited from the original Python project without a documented source. It disagrees with UN/LOCODE in places, for example `CNSHG` and `CNTSN`.
+- **Single routes with several area matches** return the first feature from `CalculateRoute`; use `CalculateRoutes` to see them all.
+- **Single routes with no path** return empty geometry and zero length rather than throwing; movement legs throw.
+- **Untagged lane links.** Three internal tags in the lane data, `segment`, `segment2` and `pacific_ocean`, stitch the antimeridian and are never reported or restrictable.
+- **Straight legs.** Road, rail and air legs are great-circle lines, not routed on any network.
+- **Snapping is planar.** Nearest lane points are found on flat longitude and latitude, so accuracy drops near the poles.
+- **Time and emissions are estimates** from the defaults in the Time and Emissions sections, with no customs, waiting or schedule effects.
+- **Per-thread search buffers** hold about 300 KB for the lifetime of each thread that routes.
+
 ## Options reference
 
 | `SeaRouteOptions` | Default | Description |
@@ -304,7 +319,7 @@ Source: Smart Freight Centre, [GLEC Framework, July 2022 edition](https://smart-
 | `AppendOriginDestination` | `false` | Prepend the exact origin and append the exact destination to the line. |
 | `Restrictions` | `[Northwest]` | Passages whose edges are excluded from the search. |
 | `IncludePorts` | `false` | Route from and to the nearest ports instead of the raw points. |
-| `PortParameters` | `null` | Terminal-only, country filters, strict matching, area polygons. |
+| `PortParameters` | `null` | Terminal-only, country filters, area polygons. `Strict` is true by default: a filter that matches no port yields no port rather than silently widening. |
 | `ReturnPassages` | `false` | Populate `traversed_passages`. |
 | `Algorithm` | `"dijkstra"` | `"dijkstra"` or `"astar"`. Both return the same path. |
 
@@ -388,6 +403,7 @@ dotnet pack src/SeaRoute/SeaRoute.csproj -c Release -o ./artifacts
 - **Marnet**, Eurostat's global network of shipping lanes, published by its GISCO geographic unit for measuring sea distances between ports: 9,708 nodes that are points along a lane, 31,940 directed edges that carry the distance in kilometres, with passage tags on canals and straits.
 - **World ports**: 3,955 ports with UN/LOCODE, name, country, terminal flag and permitted destination countries.
 - **UN/LOCODE**, the UNECE code list for trade and transport locations: 106,588 codes with name and function flags, of which 84,516 carry coordinates to one minute of arc. Used to resolve movement legs that name airports, terminals and inland places. Loaded only when a movement needs it.
+- **UN/LOCODE supplement**: a hand-maintained JSON file of coordinates for codes UNECE publishes without any, each with its source. Currently four entries: Gatwick, Shanghai Railway Station, Shanghai Hongqiao and Melrose. Applied only where UNECE has no coordinate.
 
 All three are embedded as gzip-compressed JSON, about 1.7 MB in total, and loaded lazily on first use.
 
