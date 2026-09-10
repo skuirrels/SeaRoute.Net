@@ -168,9 +168,9 @@ Locations are the bounding box of the tagged edges in the dataset. Detours were 
 
 ```csharp
 using SeaRoute.Passages;
-using static SeaRoute.SeaRoute;
+using SeaRoute;
 
-var route = Calculate(
+var route = SeaRouter.Calculate(
     origin, destination,
     restrictions: [Passage.Northwest, Passage.Suez, Passage.Babalmandab],
     returnPassages: true,

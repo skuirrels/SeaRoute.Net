@@ -14,14 +14,14 @@ public class RoutingTests
         var origin = new Coordinate(5.333333, 43.333333);
         var dest = new Coordinate(18.366667, -33.916667);
 
-        var route = SeaRoute.Calculate(origin, dest, appendOrigDest: false);
+        var route = SeaRouter.Calculate(origin, dest, appendOrigDest: false);
 
         route.Properties.Units.Should().Be("km");
         route.Properties.Length.Should().BeApproximately(10986.505, 1.0);
         route.Geometry.Coordinates.Count.Should().Be(59);
 
         // A* algorithm should yield identical route length
-        var routeAStar = SeaRoute.Calculate(origin, dest, appendOrigDest: false, algorithm: "astar");
+        var routeAStar = SeaRouter.Calculate(origin, dest, appendOrigDest: false, algorithm: "astar");
         routeAStar.Properties.Length.Should().BeApproximately(route.Properties.Length, 1e-3);
     }
 
@@ -31,7 +31,7 @@ public class RoutingTests
         var origin = new Coordinate(5.333333, 43.333333);
         var dest = new Coordinate(18.366667, -33.916667);
 
-        var route = SeaRoute.Calculate(origin, dest, appendOrigDest: true);
+        var route = SeaRouter.Calculate(origin, dest, appendOrigDest: true);
 
         route.Properties.Length.Should().BeApproximately(10996.763, 1.0);
         route.Geometry.Coordinates.Count.Should().Be(61);
@@ -49,12 +49,12 @@ public class RoutingTests
         var origin = new Coordinate(5.333333, 43.333333);
         var dest = new Coordinate(18.366667, -33.916667);
 
-        var routeMiles = SeaRoute.Calculate(origin, dest, units: DistanceUnit.Miles, appendOrigDest: false);
+        var routeMiles = SeaRouter.Calculate(origin, dest, units: DistanceUnit.Miles, appendOrigDest: false);
         routeMiles.Properties.Units.Should().Be("mi");
         routeMiles.Properties.Length.Should().BeApproximately(6826.70, 1.0);
         routeMiles.Properties.DurationHours.Should().BeApproximately(247.18, 0.5);
 
-        var routeNaut = SeaRoute.Calculate(origin, dest, units: DistanceUnit.NauticalMiles, appendOrigDest: false);
+        var routeNaut = SeaRouter.Calculate(origin, dest, units: DistanceUnit.NauticalMiles, appendOrigDest: false);
         routeNaut.Properties.Units.Should().Be("naut");
         routeNaut.Properties.Length.Should().BeApproximately(5932.24, 1.0);
         routeNaut.Properties.DurationHours.Should().BeApproximately(247.18, 0.5);
@@ -66,7 +66,7 @@ public class RoutingTests
         var shanghai = new Coordinate(121.47, 31.23);
         var rotterdam = new Coordinate(4.48, 51.92);
 
-        var route = SeaRoute.Calculate(shanghai, rotterdam, appendOrigDest: true);
+        var route = SeaRouter.Calculate(shanghai, rotterdam, appendOrigDest: true);
 
         route.Properties.Length.Should().BeApproximately(19646.929, 2.0);
         route.Geometry.Coordinates.Count.Should().Be(159);
@@ -78,7 +78,7 @@ public class RoutingTests
         var yokohama = new Coordinate(139.64, 35.44);
         var losAngeles = new Coordinate(-118.24, 33.74);
 
-        var route = SeaRoute.Calculate(yokohama, losAngeles, appendOrigDest: true);
+        var route = SeaRouter.Calculate(yokohama, losAngeles, appendOrigDest: true);
 
         route.Properties.Length.Should().BeApproximately(9126.579, 2.0);
         route.Geometry.Coordinates.Count.Should().Be(55);
@@ -97,7 +97,7 @@ public class RoutingTests
         var origin = new Coordinate(5.333333, 43.333333);
         var dest = new Coordinate(18.366667, -33.916667);
 
-        var route = SeaRoute.Calculate(origin, dest, appendOrigDest: true);
+        var route = SeaRouter.Calculate(origin, dest, appendOrigDest: true);
         string json = route.ToJson();
 
         json.Should().NotBeNullOrWhiteSpace();

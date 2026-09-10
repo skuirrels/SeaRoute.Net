@@ -28,37 +28,37 @@ public class RoutingBenchmarks
         _tokyo = new Coordinate(139.679174, 35.778467);
 
         // Warm up graph and spatial indexes
-        _ = SeaRoute.Calculate(_marseille, _capeTown);
+        _ = SeaRouter.Calculate(_marseille, _capeTown);
     }
 
     [Benchmark(Baseline = true)]
     public GeoJsonFeature Dijkstra_MarseilleToCapeTown()
     {
-        return SeaRoute.Calculate(_marseille, _capeTown, appendOrigDest: true, algorithm: "dijkstra");
+        return SeaRouter.Calculate(_marseille, _capeTown, appendOrigDest: true, algorithm: "dijkstra");
     }
 
     [Benchmark]
     public GeoJsonFeature AStar_MarseilleToCapeTown()
     {
-        return SeaRoute.Calculate(_marseille, _capeTown, appendOrigDest: true, algorithm: "astar");
+        return SeaRouter.Calculate(_marseille, _capeTown, appendOrigDest: true, algorithm: "astar");
     }
 
     [Benchmark]
     public GeoJsonFeature Dijkstra_ShanghaiToRotterdam()
     {
-        return SeaRoute.Calculate(_shanghai, _rotterdam, appendOrigDest: true, algorithm: "dijkstra");
+        return SeaRouter.Calculate(_shanghai, _rotterdam, appendOrigDest: true, algorithm: "dijkstra");
     }
 
     [Benchmark]
     public GeoJsonFeature AStar_ShanghaiToRotterdam()
     {
-        return SeaRoute.Calculate(_shanghai, _rotterdam, appendOrigDest: true, algorithm: "astar");
+        return SeaRouter.Calculate(_shanghai, _rotterdam, appendOrigDest: true, algorithm: "astar");
     }
 
     [Benchmark]
     public GeoJsonFeature Routing_WithPorts_ParisToTokyo()
     {
-        return SeaRoute.Calculate(_paris, _tokyo, appendOrigDest: true, includePorts: true);
+        return SeaRouter.Calculate(_paris, _tokyo, appendOrigDest: true, includePorts: true);
     }
 
     [Benchmark]

@@ -94,7 +94,7 @@ public class PortSelectionTests
             PortParameters = portParam
         };
 
-        var routes = SeaRoute.CalculateRoutes(brussels, tokyo, options);
+        var routes = SeaRouter.CalculateRoutes(brussels, tokyo, options);
         routes.Count.Should().Be(2);
 
         var originPortCodes = routes.Select(r => r.Properties.PortOrigin?.PortCode).ToList();
@@ -104,7 +104,7 @@ public class PortSelectionTests
     [Fact]
     public void CalculateRoute_ByPortCodes_PopulatesPortMetadata()
     {
-        var route = SeaRoute.Calculate("FRLEH", "SGSIN");
+        var route = SeaRouter.Calculate("FRLEH", "SGSIN");
 
         route.Should().NotBeNull();
         route.Properties.PortOrigin.Should().NotBeNull();

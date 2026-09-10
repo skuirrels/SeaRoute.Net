@@ -24,7 +24,7 @@ public class PassageRestrictionTests
         var origin = new Coordinate(52.99, 25.01);
         var dest = new Coordinate(-61.87, 17.15);
 
-        var route = SeaRoute.Calculate(
+        var route = SeaRouter.Calculate(
             origin,
             dest,
             appendOrigDest: true,
@@ -42,7 +42,7 @@ public class PassageRestrictionTests
         var origin = new Coordinate(52.99, 25.01);
         var dest = new Coordinate(-61.87, 17.15);
 
-        var route = SeaRoute.Calculate(
+        var route = SeaRouter.Calculate(
             origin,
             dest,
             appendOrigDest: true,
@@ -60,7 +60,7 @@ public class PassageRestrictionTests
         var origin = new Coordinate(140.02, 35.51);
         var dest = new Coordinate(-97.36, 27.81);
 
-        var route = SeaRoute.Calculate(
+        var route = SeaRouter.Calculate(
             origin,
             dest,
             appendOrigDest: true,
@@ -78,7 +78,7 @@ public class PassageRestrictionTests
         var origin = new Coordinate(103.85457, 1.25760);
         var dest = new Coordinate(23.62904, 37.94056);
 
-        var route = SeaRoute.Calculate(
+        var route = SeaRouter.Calculate(
             origin,
             dest,
             restrictions: [Passage.Suez, Passage.Gibraltar],

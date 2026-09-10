@@ -188,12 +188,10 @@ public sealed class ShippingController(ISeaRouteEngine seaRoute) : ControllerBas
 }
 ```
 
-The static `SeaRoute.SeaRoute.Calculate(...)` overloads wrap the same engine with named parameters. Because the class shares its name with the namespace, import it statically:
+The static `SeaRouter` class wraps the same engine with named parameters, one per option:
 
 ```csharp
-using static SeaRoute.SeaRoute;
-
-var route = Calculate(origin, destination, appendOrigDest: true);
+var route = SeaRouter.Calculate(origin, destination, appendOrigDest: true);
 ```
 
 ### Avoiding canals and straits
@@ -201,7 +199,7 @@ var route = Calculate(origin, destination, appendOrigDest: true);
 ```csharp
 using SeaRoute.Passages;
 
-var route = Calculate(
+var route = SeaRouter.Calculate(
     new Coordinate(52.99, 25.01),     // Persian Gulf
     new Coordinate(-61.87, 17.15),    // Caribbean
     restrictions: [Passage.Suez],
@@ -215,7 +213,7 @@ Recognised passages: `Babalmandab`, `Bering`, `Bosporus`, `Chili` (Magellan Stra
 ### Routing between ports
 
 ```csharp
-var route = Calculate("FRLEH", "CNTSN");   // Le Havre to Tianjin, UN/LOCODE
+var route = SeaRouter.Calculate("FRLEH", "CNTSN");   // Le Havre to Tianjin, UN/LOCODE
 Console.WriteLine($"{route.Properties.PortOrigin!.Name} to {route.Properties.PortDest!.Name}");
 ```
 
@@ -224,7 +222,7 @@ Console.WriteLine($"{route.Properties.PortOrigin!.Name} to {route.Properties.Por
 ```csharp
 using SeaRoute.Ports;
 
-var route = Calculate(
+var route = SeaRouter.Calculate(
     new Coordinate(2.333333, 48.866667),      // Paris
     new Coordinate(139.679174, 35.778467),    // Tokyo
     includePorts: true,
@@ -299,7 +297,7 @@ src/
     Passages/               passage identifiers
     Ports/                  Port, PortDatabase, PortParameters, AreaFeature, PortProps
     Spatial/                2D KD-tree
-    SeaRoute.cs             static facade
+    SeaRouter.cs            static facade
     SeaRouteEngine.cs       ISeaRouteEngine implementation
     SeaRouteOptions.cs      request options
   SeaRoute.Sample/          console app exercising every entry point

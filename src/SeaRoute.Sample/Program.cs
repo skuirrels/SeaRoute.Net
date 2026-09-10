@@ -17,7 +17,7 @@ Console.WriteLine(new string('=', 60));
 var stopwatch = Stopwatch.StartNew();
 var marseille = new Coordinate(5.333333, 43.333333);
 var capeTown = new Coordinate(18.366667, -33.916667);
-var route = SeaRoute.SeaRoute.Calculate(marseille, capeTown, appendOrigDest: true);
+var route = SeaRouter.Calculate(marseille, capeTown, appendOrigDest: true);
 stopwatch.Stop();
 
 Print("1. Marseille to Cape Town",
@@ -28,19 +28,19 @@ Print("1. Marseille to Cape Town",
 // 2. Passage restrictions: avoid Suez, so the route goes round the Cape of Good Hope.
 var gulf = new Coordinate(52.99, 25.01);
 var caribbean = new Coordinate(-61.87, 17.15);
-var viaCape = SeaRoute.SeaRoute.Calculate(gulf, caribbean, restrictions: [Passage.Suez], returnPassages: true);
+var viaCape = SeaRouter.Calculate(gulf, caribbean, restrictions: [Passage.Suez], returnPassages: true);
 Print("2. Persian Gulf to Caribbean avoiding Suez",
     $"{viaCape.Properties.Length:N0} km via {string.Join(", ", viaCape.Properties.TraversedPassages!)}");
 
 // 3. Port codes (UN/LOCODE) in.
-var portToPort = SeaRoute.SeaRoute.Calculate("FRLEH", "CNTSN");
+var portToPort = SeaRouter.Calculate("FRLEH", "CNTSN");
 Print("3. FRLEH to CNTSN by port code",
     $"{portToPort.Properties.PortOrigin!.Name} to {portToPort.Properties.PortDest!.Name}, {portToPort.Properties.Length:N0} km");
 
 // 4. Inland points resolved to the nearest container terminals.
 var paris = new Coordinate(2.333333, 48.866667);
 var tokyo = new Coordinate(139.679174, 35.778467);
-var viaPorts = SeaRoute.SeaRoute.Calculate(
+var viaPorts = SeaRouter.Calculate(
     paris, tokyo,
     includePorts: true,
     appendOrigDest: true,
@@ -52,14 +52,14 @@ Print("4. Paris to Tokyo via nearest terminals",
 // 5. Alternative algorithm and units.
 var yokohama = new Coordinate(139.64, 35.44);
 var losAngeles = new Coordinate(-118.24, 33.74);
-var transPacific = SeaRoute.SeaRoute.Calculate(yokohama, losAngeles, units: DistanceUnit.NauticalMiles, algorithm: "astar");
+var transPacific = SeaRouter.Calculate(yokohama, losAngeles, units: DistanceUnit.NauticalMiles, algorithm: "astar");
 Print("5. Yokohama to Los Angeles, A*, nautical miles",
     $"{transPacific.Properties.Length:N0} {transPacific.Properties.Units}, crosses the antimeridian without a longitude jump");
 
 // 6. Unreachable when every passage is closed: empty geometry, zero length.
 var singapore = new Coordinate(103.85457, 1.25760);
 var piraeus = new Coordinate(23.62904, 37.94056);
-var blocked = SeaRoute.SeaRoute.Calculate(singapore, piraeus, restrictions: [Passage.Suez, Passage.Gibraltar]);
+var blocked = SeaRouter.Calculate(singapore, piraeus, restrictions: [Passage.Suez, Passage.Gibraltar]);
 Print("6. Singapore to Piraeus with Suez and Gibraltar closed",
     $"{blocked.Geometry.Coordinates.Count} points, {blocked.Properties.Length} km");
 
@@ -74,7 +74,7 @@ Coordinate[] belgium =
 ];
 var areaBelgium = new AreaFeature(belgium, "BE", [new PortProps("BEANR", 250), new PortProps("FRLEH", 200)]);
 var brussels = new Coordinate(4.352, 50.851);
-var routes = SeaRoute.SeaRoute.CalculateRoutes(brussels, tokyo, new SeaRouteOptions
+var routes = SeaRouter.CalculateRoutes(brussels, tokyo, new SeaRouteOptions
 {
     IncludePorts = true,
     PortParameters = new PortParameters { PortsInAreasFrom = [areaBelgium] }

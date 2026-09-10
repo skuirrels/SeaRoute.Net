@@ -8,7 +8,7 @@ namespace SeaRoute;
 /// <summary>
 /// Static entrypoint for calculating maritime sea routes between any two points on Earth.
 /// </summary>
-public static class SeaRoute
+public static class SeaRouter
 {
     private static ISeaRouteEngine? _customEngine;
 

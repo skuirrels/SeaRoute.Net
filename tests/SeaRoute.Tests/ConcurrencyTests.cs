@@ -27,7 +27,7 @@ public class ConcurrencyTests
             try
             {
                 var pair = testPairs[i % testPairs.Length];
-                var route = SeaRoute.Calculate(pair.Origin, pair.Dest, appendOrigDest: true);
+                var route = SeaRouter.Calculate(pair.Origin, pair.Dest, appendOrigDest: true);
                 lengths.Add(route.Properties.Length);
             }
             catch (Exception ex)
