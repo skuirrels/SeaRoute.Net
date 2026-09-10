@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text.Json;
 using SeaRoute.Common;
 using SeaRoute.Graph;
+using SeaRoute.Locations;
 using SeaRoute.Ports;
 
 namespace SeaRoute.Data;
@@ -53,6 +54,33 @@ public static class EmbeddedResources
 
         graph.BuildIndex();
         return graph;
+    }
+
+    /// <summary>
+    /// Loads the UN/LOCODE list from the embedded unlocode.json.gz dataset: arrays of
+    /// [code, name, longitude or null, latitude or null, function flags].
+    /// </summary>
+    public static UnLocodeDatabase LoadUnLocodes()
+    {
+        using var rawStream = CurrentAssembly.GetManifestResourceStream("SeaRoute.Data.unlocode.json.gz")
+            ?? throw new InvalidOperationException("Embedded resource 'SeaRoute.Data.unlocode.json.gz' not found.");
+
+        using var gzipStream = new GZipStream(rawStream, CompressionMode.Decompress);
+        using var doc = JsonDocument.Parse(gzipStream);
+
+        var entries = new List<UnLocode>(110_000);
+        foreach (var item in doc.RootElement.EnumerateArray())
+        {
+            string code = item[0].GetString() ?? "";
+            string name = item[1].GetString() ?? "";
+            Coordinate? coordinate = item[2].ValueKind == JsonValueKind.Number && item[3].ValueKind == JsonValueKind.Number
+                ? new Coordinate(item[2].GetDouble(), item[3].GetDouble())
+                : null;
+            var functions = (LocationFunctions)item[4].GetInt32();
+            entries.Add(new UnLocode(code, name, coordinate, functions));
+        }
+
+        return new UnLocodeDatabase(entries);
     }
 
     /// <summary>

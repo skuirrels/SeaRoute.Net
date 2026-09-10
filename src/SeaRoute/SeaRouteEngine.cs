@@ -2,6 +2,7 @@ using SeaRoute.Common;
 using SeaRoute.Data;
 using SeaRoute.GeoJson;
 using SeaRoute.Graph;
+using SeaRoute.Locations;
 using SeaRoute.Movements;
 using SeaRoute.Passages;
 using SeaRoute.Ports;
@@ -23,12 +24,18 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
 
     private readonly Lazy<MaritimeGraph> _lazyGraph;
     private readonly Lazy<PortDatabase> _lazyPorts;
+    private readonly Lazy<UnLocodeDatabase> _lazyUnLocodes = new(EmbeddedResources.LoadUnLocodes, LazyThreadSafetyMode.ExecutionAndPublication);
 
     /// <inheritdoc />
     public MaritimeGraph Graph => _lazyGraph.Value;
 
     /// <inheritdoc />
     public PortDatabase Ports => _lazyPorts.Value;
+
+    /// <summary>
+    /// Gets the embedded UN/LOCODE list, used to resolve movement locations that are not sea ports.
+    /// </summary>
+    public UnLocodeDatabase UnLocodes => _lazyUnLocodes.Value;
 
     /// <summary>
     /// Creates a new instance of <see cref="SeaRouteEngine"/> using default embedded datasets.
@@ -328,30 +335,80 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
     }
 
     /// <summary>
-    /// Resolution order: explicit coordinate on the location, then <see cref="MovementRequest.Coordinates"/>,
-    /// then the embedded port database, then <see cref="MovementRequest.Resolver"/>.
+    /// Resolution order: an explicit coordinate on the location; <see cref="MovementRequest.Coordinates"/>;
+    /// the embedded port list when UN/LOCODE agrees it is the same place; the UN/LOCODE list when it carries
+    /// coordinates; the port list otherwise; then <see cref="MovementRequest.Resolver"/>.
     /// </summary>
     private ResolvedLocation ResolveUncached(Location location, MovementRequest request)
     {
-        Port? port = location.Code != null ? Ports.GetByCode(location.Code) : null;
-
         if (location.Coordinate.HasValue)
-            return new ResolvedLocation(location.Code, location.Name ?? port?.Name, location.Coordinate.Value, port);
+        {
+            Port? knownPort = location.Code != null ? Ports.GetByCode(location.Code) : null;
+            return new ResolvedLocation(location.Code, location.Name ?? knownPort?.Name, location.Coordinate.Value, null, "coordinates");
+        }
 
         string code = location.Code!;
 
-        // A caller-supplied coordinate wins outright. The embedded port record is not attached, because its
-        // stored position may differ from the override (the dataset's CNSHG is Sanshan, not Shanghai).
+        // A caller-supplied coordinate wins outright and no dataset record is attached, because the
+        // stored position may differ from the override.
         if (request.Coordinates.TryGetValue(code, out var overridden))
-            return new ResolvedLocation(code, null, overridden, null);
+            return new ResolvedLocation(code, null, overridden, null, "coordinates");
+
+        Port? port = Ports.GetByCode(code);
+        UnLocode? unLocode = UnLocodes.GetByCode(code);
+
+        // The port list has positions tuned to the lane network, so it wins when UN/LOCODE agrees on the name.
+        // When the names disagree (the port list's CNSHG is Sanshan, UN/LOCODE's is Shanghai Pt) UN/LOCODE wins.
+        if (port != null && (unLocode == null || NamesAgree(port.Name, unLocode.Name)))
+            return new ResolvedLocation(code, port.Name, port.Coordinate, port, "ports");
+
+        if (unLocode?.Coordinate is { } position)
+            return new ResolvedLocation(code, unLocode.Name, position, null, "unlocode");
 
         if (port != null)
-            return new ResolvedLocation(code, port.Name, port.Coordinate, port);
+            return new ResolvedLocation(code, port.Name, port.Coordinate, port, "ports");
 
         if (request.Resolver != null && request.Resolver.TryResolve(code, out var fromResolver, out var name))
-            return new ResolvedLocation(code, name, fromResolver, null);
+            return new ResolvedLocation(code, name, fromResolver, null, "resolver");
 
-        throw new ArgumentException(
-            $"Location '{code}' is not in the embedded port database. Add its coordinate to MovementRequest.Coordinates or supply an ILocationResolver.");
+        string known = unLocode != null
+            ? $"UN/LOCODE knows '{code}' as {unLocode.Name} ({DescribeFunctions(unLocode.Functions)}) but publishes no coordinates for it."
+            : $"Location '{code}' is in neither the embedded port list nor the UN/LOCODE list.";
+        throw new ArgumentException($"{known} Add its coordinate to MovementRequest.Coordinates or supply an ILocationResolver.");
+    }
+
+    private static bool NamesAgree(string portName, string unLocodeName)
+    {
+        string a = NormaliseName(portName);
+        string b = NormaliseName(unLocodeName);
+        if (a.Length < 4 || b.Length < 4)
+            return a == b;
+        return a == b || a.StartsWith(b, StringComparison.Ordinal) || b.StartsWith(a, StringComparison.Ordinal);
+    }
+
+    private static string NormaliseName(string name)
+    {
+        var chars = new char[name.Length];
+        int n = 0;
+        foreach (char c in name.Normalize(System.Text.NormalizationForm.FormD))
+        {
+            if (char.IsLetter(c))
+                chars[n++] = char.ToLowerInvariant(c);
+        }
+        return new string(chars, 0, n);
+    }
+
+    private static string DescribeFunctions(LocationFunctions functions)
+    {
+        if (functions == LocationFunctions.None)
+            return "no recorded function";
+        var parts = new List<string>(4);
+        if ((functions & LocationFunctions.SeaPort) != 0) parts.Add("sea port");
+        if ((functions & LocationFunctions.Airport) != 0) parts.Add("airport");
+        if ((functions & LocationFunctions.RailTerminal) != 0) parts.Add("rail terminal");
+        if ((functions & LocationFunctions.RoadTerminal) != 0) parts.Add("road terminal");
+        if ((functions & LocationFunctions.Multimodal) != 0) parts.Add("multimodal");
+        if (parts.Count == 0) parts.Add(functions.ToString().ToLowerInvariant());
+        return string.Join(", ", parts);
     }
 }

@@ -57,7 +57,7 @@
   <rect x="500" y="248" width="200" height="56" rx="6" fill="#f6f7f8"/>
   <rect x="500" y="248" width="200" height="56" rx="6" fill="#ffffff" stroke="#181818" stroke-width="1"/>
   <text x="600" y="274" fill="#181818" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Resolve locations</text>
-  <text x="600" y="290" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">coordinates · resolver · ports</text>
+  <text x="600" y="290" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">coordinates · ports · UN/LOCODE · resolver</text>
 
   <!-- Decision: Mode? -->
   <polygon points="600,344 696,384 600,424 504,384" fill="#f6f7f8"/>
@@ -103,7 +103,7 @@
   <text x="40" y="860" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Port GBFXT to Port SGSIN Sea</text>
   <text x="40" y="876" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Port SGSIN to Port AUMEL Sea</text>
   <text x="40" y="892" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Delivery from port AUMEL to place AUMRS Sea</text>
-  <text x="40" y="924" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">GBLGW, AUMRS given coordinates; ports from the list</text>
+  <text x="40" y="924" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">GBLGW, AUMRS given coordinates (UN/LOCODE has none)</text>
   <text x="480" y="844" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">Leg  Kind      Mode  From   To      Distance  Transit h  CO2e kg  Choke points</text>
   <text x="480" y="860" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">1    Pickup    Road  GBLGW  GBFXT      139 km        2.3      154</text>
   <text x="480" y="876" fill="#181818" font-size="8" font-family="'Geist Mono', monospace" xml:space="preserve">2    Main      Sea   GBFXT  SGSIN   15,402 km      567.8    2,341  Gibraltar, Suez, Bab-el-Mandeb, Malacca</text>

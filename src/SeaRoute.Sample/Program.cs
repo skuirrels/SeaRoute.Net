@@ -102,15 +102,14 @@ Print("9. Shanghai to London, step by step",
     $"   finished route {finished.Geometry.Coordinates.Count} points, {finished.Properties.Length:N0} km, {finished.Properties.DurationHours:N1} h{Environment.NewLine}" +
     $"   result         GeoJSON Feature, {finished.ToJson().Length:N0} characters");
 
-// 10 and 11. Multi-leg movements, one leg per line. Sea legs are routed; road legs are straight lines.
-//    Codes that are not in the embedded port list need coordinates. CNSHG is overridden because the
-//    embedded list holds it as Sanshan, an inland Yangtze port, while carriers use it for the Port of Shanghai.
+// 10 to 12. Multi-leg movements, one leg per line. Sea legs are routed; road and air legs are straight lines.
+//    Codes resolve from the embedded port list and UN/LOCODE list. UN/LOCODE publishes no coordinates for
+//    about a fifth of its entries, including these three, so the caller supplies them.
 var places = new Dictionary<string, Coordinate>(StringComparer.OrdinalIgnoreCase)
 {
-    ["GBLGW"] = new(-0.190278, 51.148056),   // London Gatwick
-    ["CNSHG"] = new(121.497113, 31.400091),  // Port of Shanghai, Wusongkou
-    ["CNSHZ"] = new(114.057868, 22.543099),  // Shenzhen
-    ["AUMRS"] = new(145.13, -37.92)          // placeholder near Melbourne
+    ["GBLGW"] = new(-0.190278, 51.148056),   // Gatwick Apt/London
+    ["CNSHZ"] = new(121.4737, 31.2304),      // Shanghai Railway Station
+    ["AUMRS"] = new(145.13, -37.92)          // Melrose, placeholder near Melbourne
 };
 
 PrintMovement("10. Movement with one sea leg", """
@@ -130,10 +129,7 @@ PrintMovement("12. Movement with an air leg", """
     Pickup GBLGW to Airport GBLHR Road
     Airport GBLHR to Airport AUMEL Air
     Delivery from airport AUMEL to place AUMRS Road
-    """, new Dictionary<string, Coordinate>(places, StringComparer.OrdinalIgnoreCase)
-{
-    ["GBLHR"] = new(-0.4543, 51.4700)         // London Heathrow
-});
+    """, places);   // GBLHR (Heathrow) resolves from the UN/LOCODE list
 
 static void PrintMovement(string title, string legs, IReadOnlyDictionary<string, Coordinate> places, double tonnes = 20.0, double? teu = null)
 {

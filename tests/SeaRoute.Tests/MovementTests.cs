@@ -21,14 +21,12 @@ public class MovementTests
         Delivery from port AUMEL to place AUMRS Sea
         """;
 
-    // Codes the caller supplies: places absent from the embedded port list, plus CNSHG, which carriers use
-    // for the Port of Shanghai but which the embedded list holds as Sanshan, an inland Yangtze port.
+    // Codes the caller must supply: UN/LOCODE lists them but publishes no coordinates for them.
     private static readonly Dictionary<string, Coordinate> ExtraPlaces = new(StringComparer.OrdinalIgnoreCase)
     {
         ["GBLGW"] = new Coordinate(-0.190278, 51.148056),   // London Gatwick
-        ["CNSHG"] = new Coordinate(121.497113, 31.400091),  // Port of Shanghai, Wusongkou
-        ["CNSHZ"] = new Coordinate(114.057868, 22.543099),  // Shenzhen
-        ["AUMRS"] = new Coordinate(145.13, -37.92)          // placeholder near Melbourne
+        ["CNSHZ"] = new Coordinate(121.4737, 31.2304),      // Shanghai Railway Station
+        ["AUMRS"] = new Coordinate(145.13, -37.92)          // Melrose, placeholder near Melbourne
     };
 
     [Fact]
@@ -85,9 +83,11 @@ public class MovementTests
         main.Feature.Geometry.Coordinates.Count.Should().BeGreaterThan(20);
         main.Feature.Properties.PortOrigin!.PortCode.Should().Be("GBFXT");
         main.To.Label.Should().Be("CNSHG");
-        main.To.Port.Should().BeNull("a caller-supplied coordinate replaces the embedded record, which is Sanshan");
+        main.To.Source.Should().Be("unlocode", "UN/LOCODE says CNSHG is Shanghai Pt while the port list says Sanshan, so UN/LOCODE wins");
+        main.To.Name.Should().Be("Shanghai Pt");
+        main.To.Port.Should().BeNull();
         main.Feature.Properties.PortDest.Should().BeNull();
-        main.Length.Should().BeInRange(19000.0, 20500.0, "Felixstowe to the Port of Shanghai via Suez");
+        main.Length.Should().BeInRange(19000.0, 20500.0, "Felixstowe to Shanghai via Suez");
 
         var delivery = result.Legs[2];
         delivery.Leg.Kind.Should().Be(LegKind.Delivery);
@@ -155,9 +155,40 @@ public class MovementTests
     [Fact]
     public void Movement_UnknownCodeWithoutCoordinate_ThrowsNamingTheCode()
     {
+        var act = () => SeaRouter.CalculateMovement("Pickup XXZZZ to Port GBFXT Road");
+
+        act.Should().Throw<ArgumentException>().WithMessage("*XXZZZ*neither*");
+    }
+
+    [Fact]
+    public void Movement_CodeKnownToUnLocodeButUncoordinated_ThrowsWithItsName()
+    {
         var act = () => SeaRouter.CalculateMovement("Pickup GBLGW to Port GBFXT Road");
 
-        act.Should().Throw<ArgumentException>().WithMessage("*GBLGW*");
+        act.Should().Throw<ArgumentException>().WithMessage("*GBLGW*Gatwick*airport*no coordinates*");
+    }
+
+    [Fact]
+    public void Movement_ResolvesAirportsAndPortsFromUnLocodeWithoutCallerCoordinates()
+    {
+        // Heathrow and the Port of Shanghai both carry coordinates in UN/LOCODE; Felixstowe comes from the port list.
+        var result = SeaRouter.CalculateMovement("Airport GBLHR to Port GBFXT Road\nPort GBFXT to Port CNSHG Sea");
+
+        var heathrow = result.Legs[0].From;
+        heathrow.Source.Should().Be("unlocode");
+        heathrow.Name.Should().Be("Heathrow Apt/London");
+        heathrow.Coordinate.Longitude.Should().BeApproximately(-0.45, 0.01);
+
+        var felixstowe = result.Legs[0].To;
+        felixstowe.Source.Should().Be("ports", "the port list position is used when UN/LOCODE agrees on the name");
+        felixstowe.Port.Should().NotBeNull();
+
+        var shanghai = result.Legs[1].To;
+        shanghai.Source.Should().Be("unlocode");
+        shanghai.Coordinate.Latitude.Should().BeApproximately(30.63, 0.01, "Shanghai Pt in UN/LOCODE is the Yangshan area");
+
+        SeaRouteEngine.Default.UnLocodes.Count.Should().BeGreaterThan(100000);
+        SeaRouteEngine.Default.UnLocodes.CountWithCoordinates.Should().BeGreaterThan(80000);
     }
 
     [Fact]
@@ -286,16 +317,16 @@ public class MovementTests
     [Fact]
     public void Movement_JunctionLocationIsResolvedOnce()
     {
-        var resolver = new CountingResolver(("GBLGW", new Coordinate(-0.190278, 51.148056)), ("XXAAA", new Coordinate(1.0, 51.0)));
+        var resolver = new CountingResolver(("XXBBB", new Coordinate(-0.190278, 51.148056)), ("XXAAA", new Coordinate(1.0, 51.0)));
         var request = new MovementRequest
         {
-            Legs = MovementParser.Parse("Pickup GBLGW to Port GBFXT Road\nPort GBFXT to Port XXAAA Road\nPort XXAAA to Port GBFXT Road"),
+            Legs = MovementParser.Parse("Pickup XXBBB to Port GBFXT Road\nPort GBFXT to Port XXAAA Road\nPort XXAAA to Port GBFXT Road"),
             Resolver = resolver
         };
 
         SeaRouteEngine.Default.CalculateMovement(request);
 
-        resolver.Calls.Should().Be(2, "GBLGW and XXAAA are each resolved once; GBFXT comes from the port database");
+        resolver.Calls.Should().Be(2, "XXBBB and XXAAA are each resolved once; GBFXT comes from the port database");
     }
 
     [Fact]

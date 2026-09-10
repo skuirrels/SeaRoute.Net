@@ -115,7 +115,7 @@ Example output for the Persian Gulf to the Caribbean with Suez closed, trimmed f
 
 ## Installation
 
-The current version is 1.1.0. It is not yet on nuget.org, so either reference the project directly or build the package locally (see [Building, testing and trying it out](#building-testing-and-trying-it-out)) and add it from that folder:
+The current version is 1.2.0. It is not yet on nuget.org, so either reference the project directly or build the package locally (see [Building, testing and trying it out](#building-testing-and-trying-it-out)) and add it from that folder:
 
 ```bash
 dotnet add package SeaRoute.Net --source ./artifacts
@@ -228,7 +228,8 @@ const string legs = """
     Delivery from port AUMEL to place AUMRS Sea
     """;
 
-// Codes that are not in the embedded port list need a coordinate, or an ILocationResolver.
+// GBFXT, SGSIN and AUMEL resolve from the embedded lists. UN/LOCODE has no coordinates for GBLGW or AUMRS,
+// so the caller supplies them.
 var places = new Dictionary<string, Coordinate>
 {
     ["GBLGW"] = new(-0.190278, 51.148056),
@@ -246,7 +247,15 @@ string geoJson = movement.ToJson();   // FeatureCollection, one feature per leg
 
 Each leg feature carries `leg`, `mode`, `kind`, `from` and `to` in its properties, and the collection carries `total_length`, `units`, `total_duration_hours` and `legs`. Every leg starts and ends at its resolved locations, so consecutive legs join end to end; `AppendOriginDestination` is always on for movement legs. A sea leg with no route under the given restrictions throws an `InvalidOperationException` naming the leg rather than contributing zero. Build a `MovementRequest` directly to set sea options, per-mode speeds or a resolver.
 
-Codes resolve in this order: a coordinate supplied by the caller, the embedded port list, then an `ILocationResolver` if one is set. Check that the embedded list agrees with your code conventions before relying on it. Carriers use `CNSHG` for the Port of Shanghai and `CNSHA` for Hongqiao airport, but the embedded list holds `CNSHG` as Sanshan, an inland Yangtze port, and puts Shanghai's seaport under `CNSHA`. Supplying a coordinate for a code overrides the list, as the tests do for `CNSHG`. An unknown code with no coordinate throws an `ArgumentException` naming the code rather than guessing.
+Codes resolve in this order:
+
+1. A coordinate supplied by the caller in `MovementRequest.Coordinates`.
+2. The embedded port list, when the UN/LOCODE list agrees on the place name. Port list positions are tuned to the lane network.
+3. The embedded UN/LOCODE list, when UNECE publishes coordinates for the code. This covers airports, rail terminals and inland places, and it wins over the port list when the two disagree: the port list holds `CNSHG` as Sanshan, an inland Yangtze port, while UN/LOCODE holds it as Shanghai Pt.
+4. The port list anyway, for codes UN/LOCODE lacks coordinates for.
+5. An `ILocationResolver`, if one is set.
+
+Each resolved location reports its `Source`. UN/LOCODE publishes no coordinates for about a fifth of its entries, including Gatwick (`GBLGW`), Felixstowe (`GBFXT`, covered by the port list) and Shanghai Railway Station (`CNSHZ`), so such codes still need a caller coordinate. The error for an uncoordinated code names the place and its functions; an unknown code throws an `ArgumentException` naming the code rather than guessing.
 
 ### Time
 
@@ -336,9 +345,10 @@ CLAUDE.md                   contributor rules for AI-assisted changes
 src/
   SeaRoute/                 the library, packed as SeaRoute.Net
     Common/                 Coordinate, Haversine, DistanceUnit, antimeridian normaliser, point-in-polygon
-    Data/                   marnet.json.gz, ports.json.gz and their loader
+    Data/                   marnet.json.gz, ports.json.gz, unlocode.json.gz and their loader
     GeoJson/                Feature, FeatureCollection, LineString, properties and the shared serializer
     Graph/                  MaritimeGraph, BidirectionalDijkstra, AStar, per-thread search buffers
+    Locations/              UN/LOCODE entry, functions and lookup
     Movements/              multi-leg movements: legs, parser, request, result, location resolution
     Passages/               passage identifiers
     Ports/                  Port, PortDatabase, PortParameters, AreaFeature, PortProps
@@ -383,8 +393,9 @@ dotnet pack src/SeaRoute/SeaRoute.csproj -c Release -o ./artifacts
 
 - **Marnet**, Eurostat's global network of shipping lanes, published by its GISCO geographic unit for measuring sea distances between ports: 9,708 nodes that are points along a lane, 31,940 directed edges that carry the distance in kilometres, with passage tags on canals and straits.
 - **World ports**: 3,955 ports with UN/LOCODE, name, country, terminal flag and permitted destination countries.
+- **UN/LOCODE**, the UNECE code list for trade and transport locations: 106,588 codes with name and function flags, of which 84,516 carry coordinates to one minute of arc. Used to resolve movement legs that name airports, terminals and inland places. Loaded only when a movement needs it.
 
-Both are embedded as gzip-compressed JSON, about 360 KB in total, and loaded lazily on first use.
+All three are embedded as gzip-compressed JSON, about 1.7 MB in total, and loaded lazily on first use.
 
 ## Licence
 

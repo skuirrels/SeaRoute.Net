@@ -50,16 +50,17 @@ public sealed class Location
 /// <param name="Code">Location code, if any.</param>
 /// <param name="Name">Display name, if any.</param>
 /// <param name="Coordinate">Resolved coordinate.</param>
-/// <param name="Port">Matching port from the embedded database, if the code is a known port.</param>
-public readonly record struct ResolvedLocation(string? Code, string? Name, Coordinate Coordinate, Port? Port)
+/// <param name="Port">Matching port from the embedded database, when the position came from it.</param>
+/// <param name="Source">Where the position came from: "coordinates", "ports", "unlocode" or "resolver".</param>
+public readonly record struct ResolvedLocation(string? Code, string? Name, Coordinate Coordinate, Port? Port, string Source)
 {
     /// <summary>Best available label: code, then name, then coordinate.</summary>
     public string Label => Code ?? Name ?? Coordinate.ToString();
 }
 
 /// <summary>
-/// Supplies coordinates for location codes that are neither in <see cref="MovementRequest.Coordinates"/>
-/// nor in the embedded port database, for example from a full UN/LOCODE dataset. It is consulted last.
+/// Supplies coordinates for location codes that are neither in <see cref="MovementRequest.Coordinates"/>, the embedded
+/// port list nor the embedded UN/LOCODE list with coordinates. It is consulted last.
 /// </summary>
 public interface ILocationResolver
 {
