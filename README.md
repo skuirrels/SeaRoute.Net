@@ -48,6 +48,8 @@ Every request goes through the same six steps, in order. The datasets are decomp
   <img src="docs/diagrams/routing-pipeline.png" alt="SeaRoute.Net routing pipeline in six numbered steps: take the request, optionally resolve ports, snap each end to the nearest shipping-lane point, find the shortest path along the lanes avoiding closed passages, add the real endpoints and measure length and time, return a GeoJSON feature. A strip below follows Shanghai to London through each step." width="100%">
 </p>
 
+Source: [docs/diagrams/routing-pipeline.svg](docs/diagrams/routing-pipeline.svg) (vector) and [routing-pipeline.html](docs/diagrams/routing-pipeline.html).
+
 1. **Take the request.** An origin and a destination, as coordinates or UN/LOCODE port codes, plus options such as units, vessel speed and closed passages.
 2. **Resolve ports** only if `IncludePorts` is set. Each end is swapped for its nearest port from the embedded list of 3,955, optionally limited to container terminals or a country.
 3. **Snap to the lane network.** Each end is matched to the nearest point on Marnet, Eurostat's map of shipping lanes, using a KD-tree. Shanghai's request point is 32 km from its lane point, London's 23 km.
@@ -57,6 +59,8 @@ Every request goes through the same six steps, in order. The datasets are decomp
 
 ### Terms
 
+These apply to single routes and to multi-leg movements, which are described [below](#multi-leg-movements).
+
 - **Waypoint**: a place you name in a leg by its UN/LOCODE. Pickup places, ports and delivery places are all waypoints. The first and last waypoints of a movement are the pickup and delivery places.
 - **Leg**: the journey between two consecutive waypoints, by one transport mode.
 - **Lane point**: a fixed dot on the sea map, one of 9,708, all on water. The router inserts them between the two waypoints of a sea leg; you never name one.
@@ -65,15 +69,13 @@ Every request goes through the same six steps, in order. The datasets are decomp
 - **Choke point**: a lane that runs through a canal or strait, tagged with its name. Thirteen exist. Closing one makes the router route round it.
 - **Straight leg**: a road, rail or air leg. One straight line between its two waypoints, no lane points involved.
 
-Source: [docs/diagrams/routing-pipeline.svg](docs/diagrams/routing-pipeline.svg) (vector) and [routing-pipeline.html](docs/diagrams/routing-pipeline.html).
+Implementation notes:
 
-Key design points:
-
-- **Graph.** 9,708 nodes and 31,940 directed edges stored in a compressed sparse row layout. Edge weights are great-circle kilometres. Edges through canals and straits carry a passage tag.
+- **Graph storage.** Nodes and edges are held in a compressed sparse row layout; edge weights are great-circle kilometres and edges through canals and straits carry a passage tag.
 - **Search.** Bidirectional Dijkstra by default, A* on request. Both use per-thread, node-indexed scratch arrays with generation stamps, so a query allocates only its result.
-- **Restrictions.** A restricted passage removes its tagged edges from the search. The Northwest Passage is restricted by default. If no path survives, the result has empty geometry and zero length rather than an exception.
+- **No route.** A single route with no surviving path returns empty geometry and zero length. A movement leg with no path throws, so totals are never silently short.
 - **Antimeridian.** Trans-Pacific routes are emitted with continuous longitudes, so a map library draws one line instead of a wrap-around artefact.
-- **Ports.** With `IncludePorts`, each endpoint is replaced by its nearest port, optionally filtered to container terminals or a country. Area polygons can name several preferred ports with share weights, in which case one route per port is returned.
+- **Areas.** Polygons can name several preferred ports with share weights, in which case one route per port is returned.
 
 ## What you get back
 
@@ -113,11 +115,15 @@ Example output for the Persian Gulf to the Caribbean with Suez closed, trimmed f
 
 ## Installation
 
+The current version is 1.1.0. It is not yet on nuget.org, so either reference the project directly or build the package locally (see [Building, testing and trying it out](#building-testing-and-trying-it-out)) and add it from that folder:
+
 ```bash
-dotnet add package SeaRoute.Net
+dotnet add package SeaRoute.Net --source ./artifacts
 ```
 
 Targets `net8.0` and `net10.0`. The package has no dependencies beyond the base class library and `System.Text.Json`.
+
+Breaking changes since 1.0.0: the static facade is now `SeaRouter` (was `SeaRoute`), and `ISeaRouteEngine` gained `CalculateMovement`, with a default implementation that throws `NotSupportedException` so existing implementers keep compiling.
 
 ## Usage
 
@@ -240,7 +246,7 @@ string geoJson = movement.ToJson();   // FeatureCollection, one feature per leg
 
 Each leg feature carries `leg`, `mode`, `kind`, `from` and `to` in its properties, and the collection carries `total_length`, `units`, `total_duration_hours` and `legs`. Every leg starts and ends at its resolved locations, so consecutive legs join end to end; `AppendOriginDestination` is always on for movement legs. A sea leg with no route under the given restrictions throws an `InvalidOperationException` naming the leg rather than contributing zero. Build a `MovementRequest` directly to set sea options, per-mode speeds or a resolver.
 
-Codes resolve in this order: a coordinate supplied by the caller, the embedded port list, then an `ILocationResolver` if one is set. Check that the embedded list agrees with your code conventions before relying on it. Carriers use `CNSHG` for the Port of Shanghai and `CNSHA` for Hongqiao airport, but the embedded list holds `CNSHG` as Sanshan, an inland Yangtze port, and puts Shanghai's seaport under `CNSHA`. Supplying a coordinate for a code overrides the list, as the sample and tests do for `CNSHG`. An unknown code with no coordinate throws an `ArgumentException` naming the code rather than guessing.
+Codes resolve in this order: a coordinate supplied by the caller, the embedded port list, then an `ILocationResolver` if one is set. Check that the embedded list agrees with your code conventions before relying on it. Carriers use `CNSHG` for the Port of Shanghai and `CNSHA` for Hongqiao airport, but the embedded list holds `CNSHG` as Sanshan, an inland Yangtze port, and puts Shanghai's seaport under `CNSHA`. Supplying a coordinate for a code overrides the list, as the tests do for `CNSHG`. An unknown code with no coordinate throws an `ArgumentException` naming the code rather than guessing.
 
 ## Options reference
 
@@ -257,15 +263,15 @@ Codes resolve in this order: a coordinate supplied by the caller, the embedded p
 
 ## Performance
 
-BenchmarkDotNet, Release, Apple Silicon, .NET 10. Results include port resolution, search, normalisation and GeoJSON object construction.
+BenchmarkDotNet, Release, Apple M4 Pro, .NET 10, measured at 1.1.0. Results include port resolution, search, normalisation and GeoJSON object construction.
 
 | Scenario | Mean | Allocated |
 |---|---|---|
-| Marseille to Cape Town, bidirectional Dijkstra | 87 µs | 7.6 KB |
-| Marseille to Cape Town, A* | 67 µs | 7.6 KB |
-| Shanghai to Rotterdam, bidirectional Dijkstra | 322 µs | 18.6 KB |
-| Shanghai to Rotterdam, A* | 300 µs | 18.6 KB |
-| Paris to Tokyo with port resolution | 373 µs | 17.0 KB |
+| Marseille to Cape Town, bidirectional Dijkstra | 86 µs | 7.7 KB |
+| Marseille to Cape Town, A* | 67 µs | 7.7 KB |
+| Shanghai to Rotterdam, bidirectional Dijkstra | 338 µs | 18.7 KB |
+| Shanghai to Rotterdam, A* | 298 µs | 18.7 KB |
+| Paris to Tokyo with port resolution | 441 µs | 17.0 KB |
 | Nearest-port lookup | 31 ns | 0 B |
 
 Cold start, including decompressing and indexing the embedded data, is about 75 ms and happens once per process.
@@ -281,24 +287,30 @@ dotnet run -c Release --project benchmarks/SeaRoute.Benchmarks
 ```
 SeaRoute.Net.slnx
 Directory.Build.props
+LICENSE                     Apache-2.0
+CLAUDE.md                   contributor rules for AI-assisted changes
 src/
   SeaRoute/                 the library, packed as SeaRoute.Net
     Common/                 Coordinate, Haversine, DistanceUnit, antimeridian normaliser, point-in-polygon
     Data/                   marnet.json.gz, ports.json.gz and their loader
-    GeoJson/                Feature, LineString and properties types
+    GeoJson/                Feature, FeatureCollection, LineString, properties and the shared serializer
     Graph/                  MaritimeGraph, BidirectionalDijkstra, AStar, per-thread search buffers
     Movements/              multi-leg movements: legs, parser, request, result, location resolution
     Passages/               passage identifiers
     Ports/                  Port, PortDatabase, PortParameters, AreaFeature, PortProps
     Spatial/                2D KD-tree
-    SeaRouter.cs            static facade
+    ISeaRouteEngine.cs      engine interface
     SeaRouteEngine.cs       ISeaRouteEngine implementation
     SeaRouteOptions.cs      request options
+    SeaRouter.cs            static facade
   SeaRoute.Sample/          console app exercising every entry point
 tests/
-  SeaRoute.Tests/           xunit suite: routing, passages, ports, KD-tree, units, concurrency
+  SeaRoute.Tests/           xunit suite: routing, passages, ports, KD-tree, units, concurrency, movements
 benchmarks/
   SeaRoute.Benchmarks/      BenchmarkDotNet routing benchmarks
+docs/
+  waypoints-and-choke-points.md   every waypoint type and all 13 passages with measured detours
+  diagrams/                 the three diagrams as editable HTML, SVG and PNG
 ```
 
 ## Building, testing and trying it out
