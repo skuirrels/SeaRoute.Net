@@ -1,0 +1,203 @@
+# Waypoints and choke points in SeaRoute.Net
+
+This document describes every kind of waypoint that can appear in a route produced by SeaRoute.Net, and every choke point (canal or strait) that the routing network knows about. All counts and distances below were measured against the datasets embedded in the library on 10 September 2026.
+
+## 1. Transport modes covered
+
+SeaRoute.Net models one transport mode: deep-sea shipping on the Eurostat Marnet network.
+
+| Mode | Modelled | Network | Choke points |
+|---|---|---|---|
+| Sea (ocean-going vessel) | Yes | Marnet, 9,708 nodes, 31,940 directed edges | 13 tagged passages, listed in section 3 |
+| Inland waterway | No | Not in the dataset | None |
+| Road | No | Not in the dataset | None |
+| Rail | No | Not in the dataset | None |
+| Air | No | Not in the dataset | None |
+
+The only land-side element is the straight leg that joins an inland origin or destination to its nearest port when `AppendOriginDestination` is set. That leg is a great-circle line, not a road or rail path, and it is not checked against land.
+
+## 2. Waypoint types
+
+A route is a GeoJSON `LineString`. Every coordinate in it is one of the waypoint types below. The type is not written into the output; it follows from position in the line and from the options used.
+
+| # | Waypoint type | Source | Count in data | When it appears | Position in the line |
+|---|---|---|---|---|---|
+| 2.1 | Network node | Marnet vertex | 9,708 | Always | Interior, and the ends unless 2.3 or 2.4 apply |
+| 2.2 | Snapped endpoint | Nearest network node to a request point | Chosen per request | Always | First and last network node |
+| 2.3 | Requested origin and destination | Caller's coordinates | 2 per request | `AppendOriginDestination = true` | Very first and very last |
+| 2.4 | Port | World ports database | 3,955 | Port-code overload, or `IncludePorts = true` | Between 2.3 and 2.2 at each end |
+| 2.5 | Preferred port in an area | Caller's `AreaFeature` polygon and `PortProps` weights | Caller-defined | `PortParameters.PortsInAreas*` | As 2.4, one route per port |
+| 2.6 | Custom port | `PortProps` with an unknown code | Caller-defined | As 2.5 | As 2.4 |
+| 2.7 | Antimeridian seam node | Marnet vertices on the 180th meridian | 39 seam edges | Trans-Pacific and Arctic routes | Interior |
+| 2.8 | Degenerate result | Engine | n/a | Same snapped node, or no path | Single point, or empty line |
+
+### 2.1 Network node
+
+A vertex of the Marnet shipping network, stored as longitude and latitude. Nodes are joined by edges whose weight is the great-circle distance in kilometres. Edge lengths range from 0 km on seam edges to 3,611 km on open-ocean legs, with a median of 84 km.
+
+Node connectivity tells you what a node is for:
+
+| Degree | Nodes | Role |
+|---|---|---|
+| 1 | 701 | Dead-end spur into a port approach or a fjord |
+| 2 | 3,176 | Shape point along a lane |
+| 3 | 811 | Junction where a spur leaves a lane |
+| 4 | 4,049 | Grid crossing in open ocean |
+| 5 to 17 | 971 | Hub where several lanes converge, for example off Singapore or Gibraltar |
+
+Every interior coordinate of a route is a network node. The path is the sequence of nodes chosen by bidirectional Dijkstra or A*.
+
+### 2.2 Snapped endpoint
+
+The engine does not add the caller's coordinates to the network. It finds the nearest network node to each request point with a KD-tree and searches between those two nodes. The nearest node is chosen by planar distance in degrees, so for a point well inland the snapped node can be some way from the coast.
+
+Without `AppendOriginDestination`, the snapped endpoints are the first and last coordinates of the line, and the reported length is the network distance between them.
+
+### 2.3 Requested origin and destination
+
+With `AppendOriginDestination = true`, the caller's exact coordinates are prepended and appended. The straight legs from them to the snapped endpoints (or to the ports, see 2.4) are included in the length. Marseille to Cape Town measures 10,986.5 km node to node and 10,996.8 km with the endpoints appended.
+
+### 2.4 Port
+
+An entry in the embedded world ports database:
+
+| Field | Meaning |
+|---|---|
+| `PortCode` | UN/LOCODE, for example `FRLEH`, `SGSIN`, `CNTSN` |
+| `Name`, `Country` | Display name and country; 196 countries are represented |
+| `IsTerminal` | True for 799 ports flagged as container or cargo terminals |
+| `ToCountries` | Permitted destination countries, populated for 747 ports; used by `CountryRestricted` |
+| `Longitude`, `Latitude` | Port position |
+
+A port becomes a waypoint in two ways. Routing by port code uses the port position as the request point directly. Routing with `IncludePorts = true` replaces each request point with the nearest port that passes the filters in `PortParameters`: terminals only, country of loading, country of discharge, and strict or lenient matching. The chosen ports are reported in `port_origin` and `port_dest`.
+
+Paris to Tokyo with `IncludePorts` and `OnlyTerminals` produces this sequence: Paris (2.3) → Rouen `FRURO` (2.4) → snapped node (2.2) → a run of network nodes (2.1) → snapped node (2.2) → Tokyo `JPTYO` (2.4) → Tokyo city (2.3).
+
+### 2.5 Preferred port in an area
+
+The caller can supply polygons (`AreaFeature`) that name preferred ports with share weights. If a request point falls inside a polygon, the engine routes from every preferred port and returns one feature per port, with `Share` normalised so the shares sum to one. Brussels inside a Belgium polygon with Antwerp at 250 and Le Havre at 200 yields two routes to Tokyo: `BEANR` at 56 % (20,977 km) and `FRLEH` at 44 % (20,630 km).
+
+When a point is outside every polygon and `StrictArea` is false, the nearest polygon within 2,000 km of the point is used instead.
+
+### 2.6 Custom port
+
+A `PortProps` entry whose code is not in the database becomes a synthetic port. Its position comes from `x` and `y` in the props dictionary. If those are absent it is placed at the request point itself, which means the route starts from the nearest network node to the request point with no port leg.
+
+### 2.7 Antimeridian seam node
+
+Marnet is a flat map with a seam at the 180th meridian. The dataset stitches it with three internal edge tags that are never reported to callers:
+
+| Tag | Undirected edges | Length | Purpose |
+|---|---|---|---|
+| `pacific_ocean` | 12 | 0 km | Zero-length links joining the −180° and +180° copies of the same node |
+| `segment` | 13 | 16,680 km | Meridian lane running along +180° from 70° S to 80° N |
+| `segment2` | 14 | 17,792 km | The same lane along −180° |
+
+Some Arctic nodes are also duplicated east of the seam, out to 190.85° E. After routing, the engine unwraps longitudes so consecutive points never differ by more than 180°. A trans-Pacific route may therefore contain longitudes beyond ±180°, which is what map libraries need to draw one continuous line.
+
+### 2.8 Degenerate result
+
+If both request points snap to the same node, the line has one coordinate and the length is zero. If passage restrictions leave no path, the line is empty and length and duration are zero. No exception is thrown in either case.
+
+## 3. Choke points
+
+### 3.1 How they are modelled
+
+A choke point is not a node. It is a tag on the edges that pass through a canal or strait. The tag is a lower-case identifier such as `suez`, exposed as constants on the `Passage` class.
+
+- **Restriction.** Any passage named in `SeaRouteOptions.Restrictions` has its tagged edges removed from the search. The path then goes round, or fails if there is no alternative.
+- **Reporting.** With `ReturnPassages = true`, the output property `traversed_passages` lists the tags of every tagged edge the route used, deduplicated.
+- **Default.** `northwest` is restricted unless the caller replaces the restriction set. Every other passage is open by default.
+
+### 3.2 Catalogue
+
+Locations are the bounding box of the tagged edges in the dataset. Detours were measured with the library; the default column uses the default restriction set and the closed column adds the named passage.
+
+| Identifier | Constant | Connects | Tagged edges | Tagged length | Location (lon, lat) | Example pair | Default | Closed |
+|---|---|---|---|---|---|---|---|---|
+| `suez` | `Passage.Suez` | Mediterranean and Red Sea | 5 | 521 km | 32.3° to 34.5° E, 27.0° to 31.1° N | Singapore to Rotterdam | 15,525 km | 21,985 km via Sunda and the Cape |
+| `panama` | `Passage.Panama` | Caribbean and Pacific | 10 | 285 km | 80.0° to 79.5° W, 7.4° to 9.8° N | Shanghai to New York | 19,779 km | 22,953 km via Malacca and Suez |
+| `gibraltar` | `Passage.Gibraltar` | Atlantic and Mediterranean | 3 | 95 km | 5.8° to 4.7° W, 36.0° N | Marseille to New York | 7,220 km | 25,623 km via Suez and the Cape |
+| `bosporus` | `Passage.Bosporus` | Black Sea and Sea of Marmara | 6 | 35 km | 29.0° to 29.1° E, 41.0° to 41.2° N | Odessa to Marseille | 3,149 km | No route |
+| `dardanelles` | `Passage.Dardanelles` | Sea of Marmara and Aegean | 5 | 257 km | 26.2° to 29.0° E, 40.1° to 41.0° N | Odessa to Marseille | 3,149 km | No route |
+| `ormuz` | `Passage.Ormuz` | Persian Gulf and Gulf of Oman | 4 | 153 km | 56.3° to 57.1° E, 25.5° to 26.5° N | Kuwait to Mumbai | 2,919 km | No route |
+| `babalmandab` | `Passage.Babalmandab` | Red Sea and Gulf of Aden | 1 | 59 km | 43.3° to 43.8° E, 12.4° to 12.7° N | Jeddah to Mumbai | 4,420 km | 22,949 km via Suez, Gibraltar and the Cape |
+| `malacca` | `Passage.Malacca` | Indian Ocean and South China Sea | 1 | 135 km | 99.8° to 100.6° E, 3.2° to 4.1° N | Shanghai to Colombo | 7,061 km | 8,219 km via Sunda |
+| `sunda` | `Passage.Sunda` | Java Sea and Indian Ocean | 1 | 15 km | 105.8° to 105.9° E, 6.0° to 5.9° S | Shanghai to Colombo, Malacca also closed | 7,061 km | 9,352 km via an untagged strait further east |
+| `chili` | `Passage.Chili` | Atlantic and Pacific round South America | 5 | 857 km | 80.0° to 68.0° W, 60.0° to 52.4° S | Buenos Aires to Valparaíso | 5,611 km | 15,080 km via Panama |
+| `south_africa` | `Passage.SouthAfrica` | Atlantic and Indian Ocean round Africa | 7 | 4,650 km | 18.0° to 30.0° E, 50.0° to 35.0° S | Singapore to Rotterdam, Suez also closed | 15,525 km | 22,787 km via Sunda and the far south |
+| `bering` | `Passage.Bering` | Pacific and Arctic Ocean | 7 | 847 km | 169.5° W to 190.9° E, 62.1° to 66.0° N | Rotterdam to Yokohama, Northwest opened | 14,055 km | 20,961 km via Suez |
+| `northwest` | `Passage.Northwest` | Atlantic and Pacific through the Arctic | 12 | 1,933 km | 171.7° W to 190.9° E, 66.0° to 74.3° N | Rotterdam to Yokohama | Restricted by default | Opening it gives 14,055 km |
+
+### 3.3 Notes on each choke point
+
+**Suez Canal (`suez`).** A sea-level canal of about 190 km between Port Said and Suez, with no locks. It is the shortest link between Europe and Asia; closing it in the model sends Singapore to Rotterdam traffic round the Cape of Good Hope, adding roughly 6,500 km, which at 24 knots is about six extra days. The tagged edges also cover the Gulf of Suez approaches, which is why the tagged length exceeds the canal itself.
+
+**Panama Canal (`panama`).** About 80 km of locks and lakes between the Caribbean and the Pacific. Vessel size is limited by the Neopanamax locks. Closing it in the model reroutes Shanghai to New York eastabout through Malacca and Suez rather than round Cape Horn, because that is shorter on this network.
+
+**Strait of Gibraltar (`gibraltar`).** About 13 km wide at its narrowest, the only natural entrance to the Mediterranean. Closing it forces Atlantic traffic to reach the Mediterranean through Suez, which is why Marseille to New York grows from 7,220 km to 25,623 km. Suez and Gibraltar closed together make the Mediterranean unreachable from outside, which is the blocked-route case used in the test suite.
+
+**Bosporus and Dardanelles (`bosporus`, `dardanelles`).** The two Turkish Straits, roughly 30 km and 60 km long, are the only exit from the Black Sea, and they are in series. Closing either one makes every Black Sea port unreachable; the model returns an empty route. Transit is governed by the Montreux Convention.
+
+**Strait of Hormuz (`ormuz`).** About 40 km wide at its narrowest between Oman and Iran, and the only exit from the Persian Gulf. It carries a large share of the world's seaborne crude oil. Closing it isolates Kuwait, Iraq, Bahrain, Qatar, the UAE's Gulf coast and Saudi Arabia's Gulf ports; the model returns an empty route for any of them.
+
+**Bab-el-Mandeb (`babalmandab`).** About 26 km wide between Yemen and Djibouti, joining the Red Sea to the Gulf of Aden. It is the southern gate of the Suez route, so a closure has the same continental effect as closing Suez for traffic beyond the Red Sea. Jeddah to Mumbai, normally 4,420 km, becomes a 22,949 km voyage out through Suez, Gibraltar and round the Cape.
+
+**Strait of Malacca (`malacca`).** About 800 km long between Malaysia, Singapore and Sumatra, only a few kilometres wide at the Singapore end, and the busiest strait in the world. Draught is limited to around 25 m, the so-called Malaccamax. The model's tag covers the northern entrance near Penang. Closing it diverts Shanghai to Colombo through the Sunda Strait, adding about 1,150 km.
+
+**Sunda Strait (`sunda`).** The passage between Java and Sumatra, around 24 km wide and shallow at its northern end. It is the first alternative when Malacca is closed. Closing both sends the model further east through an untagged strait such as Lombok, adding about 2,300 km to Shanghai to Colombo.
+
+**Magellan Strait and Chilean channels (`chili`).** The sheltered route through the southern tip of South America, about 570 km long, avoiding Cape Horn. Closing it in the model sends Buenos Aires to Valparaíso traffic north through Panama, tripling the distance.
+
+**Cape of Good Hope (`south_africa`).** Not a strait but the open-ocean turn round southern Africa. It matters as the fallback when Suez or Bab-el-Mandeb is closed. The tag covers about 4,650 km of lanes between 35° S and 50° S. Closing it as well as Suez still leaves a route, but a far southern one that adds a further 800 km.
+
+**Bering Strait (`bering`).** About 82 km wide between Russia and Alaska, linking the Pacific to the Arctic Ocean. In the dataset it only matters in combination with `northwest`, because every Arctic route passes through both tags.
+
+**Northwest Passage and Arctic lanes (`northwest`).** The tag covers the Arctic lanes north of 66° N between Alaska and the Canadian archipelago. These routes are seasonal and ice-dependent, so the library restricts them by default. Removing the restriction cuts Rotterdam to Yokohama from 20,961 km to 14,055 km, a saving of about a third, which is the reason the option exists.
+
+### 3.4 Combinations worth knowing
+
+- **Mediterranean sealed.** `suez` and `gibraltar` together: no route between the Mediterranean and any other sea.
+- **Black Sea sealed.** `bosporus` or `dardanelles` alone: no route to or from any Black Sea port.
+- **Persian Gulf sealed.** `ormuz` alone: no route to or from any Gulf port.
+- **Red Sea bypassed.** `suez` or `babalmandab`: Europe to Asia traffic goes round the Cape.
+- **Indonesia bypassed.** `malacca` and `sunda`: traffic goes through an untagged strait further east, which cannot be restricted.
+- **Arctic opened.** Remove `northwest` from the restriction set: Europe to north-east Asia traffic goes over the top of Russia.
+
+## 4. Reference
+
+```csharp
+using SeaRoute.Passages;
+using static SeaRoute.SeaRoute;
+
+var route = Calculate(
+    origin, destination,
+    restrictions: [Passage.Northwest, Passage.Suez, Passage.Babalmandab],
+    returnPassages: true,
+    includePorts: true,
+    appendOrigDest: true);
+
+// route.Properties.TraversedPassages  -> tags of choke points used
+// route.Properties.PortOrigin / PortDest -> port waypoints chosen
+// route.Geometry.Coordinates           -> requested point, port, snapped node, network nodes, ...
+```
+
+All identifiers, as constants and as strings:
+
+| Constant | String |
+|---|---|
+| `Passage.Babalmandab` | `babalmandab` |
+| `Passage.Bering` | `bering` |
+| `Passage.Bosporus` | `bosporus` |
+| `Passage.Chili` | `chili` |
+| `Passage.Dardanelles` | `dardanelles` |
+| `Passage.Gibraltar` | `gibraltar` |
+| `Passage.Malacca` | `malacca` |
+| `Passage.Northwest` | `northwest` |
+| `Passage.Ormuz` | `ormuz` |
+| `Passage.Panama` | `panama` |
+| `Passage.SouthAfrica` | `south_africa` |
+| `Passage.Suez` | `suez` |
+| `Passage.Sunda` | `sunda` |
+
+Strings are matched case-insensitively. Unknown strings in `Restrictions` are ignored, and internal tags (`segment`, `segment2`, `pacific_ocean`) are never reported and cannot be restricted through the public constants.

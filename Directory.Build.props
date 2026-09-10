@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
-    <NuGetAudit>false</NuGetAudit>
-    <CheckEolTargetFramework>false</CheckEolTargetFramework>
-    <NoWarn>$(NoWarn);NU1900</NoWarn>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
 </Project>
