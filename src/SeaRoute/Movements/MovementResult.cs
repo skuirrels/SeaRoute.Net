@@ -164,4 +164,12 @@ public sealed class MovementResult
     /// Serialises the movement as a GeoJSON FeatureCollection.
     /// </summary>
     public string ToJson(bool writeIndented = false) => ToFeatureCollection().ToJson(writeIndented);
+
+    /// <summary>
+    /// Formats the complete movement as a human-readable text table with leg details, totals, transit time,
+    /// emissions and traversed choke points.
+    /// </summary>
+    /// <param name="includeExplanations">Whether to append short explanations of the emissions columns.</param>
+    public string ToText(bool includeExplanations = true) =>
+        MovementTextFormatter.Format(this, includeExplanations);
 }

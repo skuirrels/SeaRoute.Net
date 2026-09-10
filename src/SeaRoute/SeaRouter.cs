@@ -127,15 +127,28 @@ public static class SeaRouter
         double? cargoTonnes = null,
         double? cargoTeu = null)
     {
-        var request = new MovementRequest { Legs = MovementParser.Parse(legsText), CargoTonnes = cargoTonnes, CargoTeu = cargoTeu };
-        if (coordinates != null)
-        {
-            foreach (var (code, coordinate) in coordinates)
-                request.Coordinates[code] = coordinate;
-        }
-        request.SeaOptions = seaOptions;
-        request.Resolver = resolver;
-        return Engine.CalculateMovement(request);
+        return CalculateMovement(
+            MovementParser.Parse(legsText),
+            coordinates,
+            seaOptions,
+            resolver,
+            cargoTonnes,
+            cargoTeu);
+    }
+
+    /// <summary>
+    /// Routes a strongly typed, continuous movement plan.
+    /// </summary>
+    public static MovementResult CalculateMovement(
+        MovementPlan plan,
+        IReadOnlyDictionary<string, Coordinate>? coordinates = null,
+        SeaRouteOptions? seaOptions = null,
+        ILocationResolver? resolver = null,
+        double? cargoTonnes = null,
+        double? cargoTeu = null)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        return CalculateMovement(plan.Legs, coordinates, seaOptions, resolver, cargoTonnes, cargoTeu);
     }
 
     /// <summary>
@@ -148,6 +161,30 @@ public static class SeaRouter
     /// </summary>
     public static MovementResult CalculateMovement(MovementRequest request)
     {
+        return Engine.CalculateMovement(request);
+    }
+
+    private static MovementResult CalculateMovement(
+        IReadOnlyList<MovementLeg> legs,
+        IReadOnlyDictionary<string, Coordinate>? coordinates,
+        SeaRouteOptions? seaOptions,
+        ILocationResolver? resolver,
+        double? cargoTonnes,
+        double? cargoTeu)
+    {
+        var request = new MovementRequest
+        {
+            Legs = [.. legs],
+            CargoTonnes = cargoTonnes,
+            CargoTeu = cargoTeu,
+            SeaOptions = seaOptions,
+            Resolver = resolver
+        };
+        if (coordinates != null)
+        {
+            foreach (var (code, coordinate) in coordinates)
+                request.Coordinates[code] = coordinate;
+        }
         return Engine.CalculateMovement(request);
     }
 

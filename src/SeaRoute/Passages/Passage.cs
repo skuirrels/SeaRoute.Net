@@ -68,6 +68,29 @@ public static class Passage
     /// </summary>
     public static IReadOnlySet<string> ValidPassages => AllPassages;
 
+    /// <summary>Returns a human-readable name for a recognized passage identifier.</summary>
+    public static string GetDisplayName(string passage)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(passage);
+        return passage.Trim().ToLowerInvariant() switch
+        {
+            Babalmandab => "Bab-el-Mandeb",
+            Bosporus => "Bosporus",
+            Gibraltar => "Gibraltar",
+            Suez => "Suez",
+            Panama => "Panama",
+            Ormuz => "Hormuz",
+            Northwest => "Northwest Passage",
+            Malacca => "Malacca",
+            Sunda => "Sunda",
+            Chili => "Magellan Strait",
+            SouthAfrica => "Cape of Good Hope",
+            Bering => "Bering Strait",
+            Dardanelles => "Dardanelles",
+            _ => throw new ArgumentException($"Unknown passage identifier '{passage}'.", nameof(passage))
+        };
+    }
+
     /// <summary>
     /// Filters and returns only recognized passage names from the candidate list.
     /// </summary>

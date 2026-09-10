@@ -7,6 +7,16 @@ namespace SeaRoute.Tests;
 
 public class PassageRestrictionTests
 {
+    [Theory]
+    [InlineData(Passage.Babalmandab, "Bab-el-Mandeb")]
+    [InlineData(Passage.Ormuz, "Hormuz")]
+    [InlineData(Passage.SouthAfrica, "Cape of Good Hope")]
+    [InlineData(Passage.Chili, "Magellan Strait")]
+    public void DisplayName_UsesRecognizableGeographicNames(string passage, string expected)
+    {
+        Passage.GetDisplayName(passage).Should().Be(expected);
+    }
+
     [Fact]
     public void ValidPassages_Filter_ShouldOnlyKeepKnownPassages()
     {

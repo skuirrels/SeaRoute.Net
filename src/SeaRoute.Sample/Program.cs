@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using SeaRoute;
 using SeaRoute.Common;
+using SeaRoute.Movements;
 using SeaRoute.Passages;
 using SeaRoute.Ports;
 
@@ -102,64 +103,49 @@ Print("9. CNSHG Shanghai to GBLON London, step by step",
 //    list; the library's supplement file fills them from cited sources. AUMRS is Melrose, an inland South
 //    Australian town about 800 km from Melbourne, so its delivery leg is by road.
 
-PrintMovement("10. Movement with one sea leg", """
-    Pickup GBLGW to Port GBFXT Road
-    Port GBFXT to Port CNSHG Sea
-    Delivery from port CNSHG to place CNSHZ Road
-    """);
+PrintMovement(
+    "10. Movement with one sea leg",
+    MovementPlan
+        .From(Waypoint.Place("GBLGW"))
+        .PickupTo(Waypoint.Port("GBFXT"), TransportMode.Road)
+        .ThenTo(Waypoint.Port("CNSHG"), TransportMode.Sea)
+        .DeliverTo(Waypoint.Place("CNSHZ"), TransportMode.Road));
 
-PrintMovement("11. Movement with several sea legs, a light 12 t load in one 40-foot container", """
-    Pickup GBLGW to Port GBFXT Road
-    Port GBFXT to Port SGSIN Sea
-    Port SGSIN to Port AUMEL Sea
-    Delivery from port AUMEL to place AUMRS Road
-    """, tonnes: 12.0, teu: 2.0);
+PrintMovement(
+    "11. Movement with several sea legs, a light 12 t load in one 40-foot container",
+    MovementPlan
+        .From(Waypoint.Place("GBLGW"))
+        .PickupTo(Waypoint.Port("GBFXT"), TransportMode.Road)
+        .ThenTo(Waypoint.Port("SGSIN"), TransportMode.Sea)
+        .ThenTo(Waypoint.Port("AUMEL"), TransportMode.Sea)
+        .DeliverTo(Waypoint.Place("AUMRS"), TransportMode.Road),
+    tonnes: 12.0,
+    teu: 2.0);
 
-PrintMovement("12. Movement with an air leg", """
-    Pickup GBLGW to Airport GBLHR Road
-    Airport GBLHR to Airport AUMEL Air
-    Delivery from airport AUMEL to place AUMRS Road
-    """);
+PrintMovement(
+    "12. Movement with an air leg",
+    MovementPlan
+        .From(Waypoint.Place("GBLGW"))
+        .PickupTo(Waypoint.Airport("GBLHR"), TransportMode.Road)
+        .ThenTo(Waypoint.Airport("AUMEL"), TransportMode.Air)
+        .DeliverTo(Waypoint.Place("AUMRS"), TransportMode.Road));
 
-static void PrintMovement(string title, string legs, double tonnes = 20.0, double? teu = null)
+static void PrintMovement(string title, MovementPlan plan, double tonnes = 20.0, double? teu = null)
 {
     // CO2e per leg uses GLEC well-to-wheel defaults per mode. With a TEU count, sea legs are charged per
     // container (76 g per TEU-km) rather than per tonne, so a light box is not under-counted.
-    var movement = SeaRouter.CalculateMovement(legs, seaOptions: new SeaRouteOptions { ReturnPassages = true }, cargoTonnes: tonnes, cargoTeu: teu);
+    var movement = SeaRouter.CalculateMovement(plan, seaOptions: new SeaRouteOptions { ReturnPassages = true }, cargoTonnes: tonnes, cargoTeu: teu);
 
     Console.WriteLine();
     Console.WriteLine(title);
-    foreach (var line in legs.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        Console.WriteLine("   " + line);
-    Console.WriteLine();
-    Console.WriteLine($"   {"Leg",-4}{"Kind",-10}{"Mode",-6}{"From",-7}{"To",-7}{"Distance",12}{"Transit",9}{"CO2e rate",16}{"CO2e per tonne",16}{"CO2e total",12}{"Basis",8}  Choke points");
-    Console.WriteLine($"   {"",4}{"",10}{"",6}{"",7}{"",7}{"",12}{"hours",9}{"g per t-km",16}{"kg per t cargo",16}{"kg",12}{"",8}");
-    foreach (var leg in movement.Legs)
-    {
-        Console.WriteLine(
-            $"   {leg.Sequence,-4}{leg.Leg.Kind,-10}{leg.Leg.Mode,-6}{leg.From.Label,-7}{leg.To.Label,-7}" +
-            $"{leg.Length,9:N0} km{leg.TransitHours,9:N1}{leg.Co2eGramsPerTonneKm,16:N1}{leg.Co2eKgPerTonne,16:N1}{leg.Co2eKg,12:N0}{leg.Co2eBasis,8}  {PassageNames(leg.Feature.Properties.TraversedPassages)}");
-    }
-    Console.WriteLine($"   {"Total",-34}{movement.TotalLength,9:N0} km{movement.TotalTransitHours,9:N1}{"",16}{movement.TotalCo2eKgPerTonne,16:N1}{movement.TotalCo2eKg,12:N0}{"",8}  for {movement.CargoTonnes:N0} t of cargo" + (movement.CargoTeu.HasValue ? $" in {movement.CargoTeu:N0} TEU" : ""));
-    Console.WriteLine($"   Transit        = {movement.TotalDurationHours:N1} h travelling (sea at 16 knots, road 60, rail 80, air 800 km/h) + {movement.TotalPortHours:N0} h in port (24 h at each end of a sea leg) = {movement.TotalTransitHours / 24.0:N1} days");
-    Console.WriteLine("   CO2e rate      = grams of CO2e emitted moving 1 tonne 1 km (GLEC well-to-wheel default for the mode)");
-    Console.WriteLine("   CO2e per tonne = rate x leg distance: kg of CO2e for each tonne of cargo carried over the leg");
-    Console.WriteLine("   CO2e total     = kg of CO2e for this shipment: per tonne x cargo weight, or per container (76 g per TEU-km) on sea legs when a TEU count is given");
+    Console.WriteLine(movement.ToText());
 }
 
 static string PassageNames(IReadOnlyList<string>? tags)
 {
     if (tags == null || tags.Count == 0)
         return "";
-    return string.Join(", ", tags.Select(t => t switch
-    {
-        "babalmandab" => "Bab-el-Mandeb",
-        "south_africa" => "Cape of Good Hope",
-        "ormuz" => "Hormuz",
-        "chili" => "Magellan Strait",
-        "northwest" => "Northwest Passage",
-        _ => char.ToUpperInvariant(t[0]) + t[1..]
-    }));
+    return string.Join(", ", tags.Select(Passage.GetDisplayName));
 }
 
 // Position of a UN/LOCODE from the embedded port list or UN/LOCODE list.

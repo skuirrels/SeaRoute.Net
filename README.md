@@ -22,51 +22,44 @@ Console.WriteLine($"{route.Properties.Length:N0} {route.Properties.Units}, {rout
 
 ### Complete multi-leg movement
 
-This end-to-end example routes pickup, two sea legs and final delivery using UN/LOCODEs throughout. It calculates travelling and port time, applies the built-in well-to-wheel emission factors to a 12-tonne load in one 40-foot container, reports each leg and writes the complete GeoJSON `FeatureCollection`.
+Route pickup, two sea legs and final delivery using UN/LOCODEs throughout. The result contains every leg, totals, timings, emissions, choke points and a GeoJSON `FeatureCollection`.
 
 ```csharp
-using System;
-using System.IO;
 using SeaRoute;
+using SeaRoute.Movements;
 
-const string legs = """
-    Pickup GBLGW to Port GBFXT Road
-    Port GBFXT to Port SGSIN Sea
-    Port SGSIN to Port AUMEL Sea
-    Delivery from port AUMEL to place AUMRS Road
-    """;
+var plan = MovementPlan
+    .From(Waypoint.Place("GBLGW"))
+    .PickupTo(Waypoint.Port("GBFXT"), TransportMode.Road)
+    .ThenTo(Waypoint.Port("SGSIN"), TransportMode.Sea)
+    .ThenTo(Waypoint.Port("AUMEL"), TransportMode.Sea)
+    .DeliverTo(Waypoint.Place("AUMRS"), TransportMode.Road);
 
 var movement = SeaRouter.CalculateMovement(
-    legs,
+    plan,
     seaOptions: new SeaRouteOptions { ReturnPassages = true },
     cargoTonnes: 12.0,
     cargoTeu: 2.0); // One 40-foot container
 
-foreach (var leg in movement.Legs)
-{
-    var chokePoints = string.Join(
-        ", ",
-        leg.Feature.Properties.TraversedPassages ?? Array.Empty<string>());
-
-    Console.WriteLine(
-        $"{leg.Sequence}. {leg.Leg.Kind} {leg.Leg.Mode}: " +
-        $"{leg.From.Label} to {leg.To.Label}, " +
-        $"{leg.Length:N0} {movement.Units}, " +
-        $"{leg.TransitHours:N1} h, " +
-        $"{leg.Co2eKg:N0} kg CO2e" +
-        (chokePoints.Length == 0 ? "" : $", via {chokePoints}"));
-}
-
-Console.WriteLine(
-    $"Total: {movement.TotalLength:N0} {movement.Units}, " +
-    $"{movement.TotalTransitHours:N1} h " +
-    $"({movement.TotalTransitHours / 24.0:N1} days), " +
-    $"{movement.TotalCo2eKg:N0} kg CO2e");
-
-File.WriteAllText("movement.geojson", movement.ToJson(writeIndented: true));
+Console.WriteLine(movement.ToText());
+var geoJson = movement.ToJson(writeIndented: true);
 ```
 
-This produces four joined leg features totalling about 23,670 km and 36.6 days with the default speeds and port dwell. The sea legs report their traversed choke points, and `movement.geojson` contains the full result for mapping or downstream processing.
+`ToText()` produces the full end-to-end report directly from the calculated movement; `ToJson()` returns the same movement as GeoJSON for mapping or downstream processing.
+
+```text
+Leg Kind      Mode  From   To         Distance  Transit       CO2e rate  CO2e per tonne  CO2e total   Basis  Choke points
+                                                     hours      g per t-km  kg per t cargo          kg
+1   Pickup    Road  GBLGW  GBFXT        139 km      2.3            92.0            12.8         154  tonnes
+2   Main      Sea   GBFXT  SGSIN     15,402 km    567.8             7.6           117.1       2,341     teu  Gibraltar, Suez, Bab-el-Mandeb, Malacca
+3   Main      Sea   SGSIN  AUMEL      7,300 km    294.4             7.6            55.5       1,110     teu  Sunda
+4   Delivery  Road  AUMEL  AUMRS        829 km     13.8            92.0            76.3         915  tonnes
+Total                                23,670 km    878.3                           261.6       4,520          for 12 t of cargo in 2 TEU
+Transit        = 782.3 h travelling + 96 h in port = 878.3 h (36.6 days)
+CO2e rate      = grams of CO2e emitted moving 1 tonne 1 km (configured factor for the mode)
+CO2e per tonne = rate × leg distance: kg of CO2e for each tonne of cargo carried over the leg
+CO2e total     = kg of CO2e for this shipment: cargo weight on non-sea legs, 76 g per TEU-km on sea legs
+```
 
 ---
 
@@ -275,7 +268,7 @@ var routes = SeaRouteEngine.Default.CalculateRoutes(SeaRouter.Locate("BEBRU").Co
 
 ### Multi-leg movements
 
-A movement is a list of legs, one per line, in the form `[Pickup|Delivery] [port|place|airport|station|terminal|depot] CODE to [...] CODE MODE`, where MODE is Sea, Road, Rail or Air. Declared waypoint types and sea, rail and air modes are checked against known UN/LOCODE functions; caller-only coordinates remain unclassified. Pickup and delivery ordering and continuity between consecutive legs are also validated. Sea legs are routed on the lane network. Road, rail and air legs are straight great-circle lines between their two waypoints, never touching lane points or choke points, with a configurable speed per mode: 60, 80 and 800 km/h by default.
+A `MovementPlan` builds a continuous route from typed waypoints and transport modes. Each destination automatically becomes the next leg's origin, so intermediate UN/LOCODEs are stated once. Declared waypoint types and sea, rail and air modes are checked against known UN/LOCODE functions. Pickup and delivery ordering is enforced while the plan is built. Sea legs are routed on the lane network. Road, rail and air legs are straight great-circle lines between their two waypoints, never touching lane points or choke points, with a configurable speed per mode: 60, 80 and 800 km/h by default.
 
 <p align="center">
   <img src="docs/diagrams/movement-flow.png" alt="SeaRoute.Net movement flow: leg lines are parsed, each leg's locations resolved, sea legs routed on Marnet and road, rail or air legs measured as straight great-circle lines with no lane points or choke points, producing one feature per leg and a FeatureCollection with totals; worked examples show a UK to Melbourne movement with its transit time split into travelling and port hours, and a movement with an air leg from Heathrow to Melbourne" width="70%">
@@ -286,25 +279,24 @@ Source: [docs/diagrams/movement-flow.svg](docs/diagrams/movement-flow.svg) (vect
 ```csharp
 using SeaRoute.Movements;
 
-const string legs = """
-    Pickup GBLGW to Port GBFXT Road
-    Port GBFXT to Port SGSIN Sea
-    Port SGSIN to Port AUMEL Sea
-    Delivery from port AUMEL to place AUMRS Road
-    """;
+var plan = MovementPlan
+    .From(Waypoint.Place("GBLGW"))
+    .PickupTo(Waypoint.Port("GBFXT"), TransportMode.Road)
+    .ThenTo(Waypoint.Port("SGSIN"), TransportMode.Sea)
+    .ThenTo(Waypoint.Port("AUMEL"), TransportMode.Sea)
+    .DeliverTo(Waypoint.Place("AUMRS"), TransportMode.Road);
 
 // Every code resolves from the embedded port list or UN/LOCODE list. For a code neither list can place,
 // pass a dictionary of coordinates as the second argument.
-var movement = SeaRouter.CalculateMovement(legs);
+var movement = SeaRouter.CalculateMovement(plan);
 
-foreach (var leg in movement.Legs)
-    Console.WriteLine($"{leg.Sequence} {leg.Leg.Mode} {leg.From.Label} to {leg.To.Label}: {leg.Length:N0} km");
-
-Console.WriteLine($"{movement.TotalLength:N0} km, {movement.TotalDurationHours:N0} h");
+Console.WriteLine(movement.ToText());
 string geoJson = movement.ToJson();   // FeatureCollection, one feature per leg
 ```
 
-Each leg feature carries `leg`, `mode`, `kind`, `from` and `to` in its properties, and the collection carries `total_length`, `units`, `total_duration_hours` and `legs`. Every leg starts and ends at its resolved locations, so consecutive legs join end to end; `AppendOriginDestination` is always on for movement legs. A sea leg with no route under the given restrictions throws an `InvalidOperationException` naming the leg rather than contributing zero. Build a `MovementRequest` directly to set sea options, per-mode speeds or a resolver.
+The string overload remains available as an import convenience when a source system already supplies human-written leg lines. Code-first callers should use `MovementPlan`; the strings above are only the UN/LOCODE identifiers themselves.
+
+Each leg feature carries `leg`, `mode`, `kind`, `from` and `to` in its properties, and the collection carries `total_length`, `units`, `total_duration_hours` and `legs`. Every leg starts and ends at its resolved locations, so consecutive legs join end to end; `AppendOriginDestination` is always on for movement legs. A sea leg with no route under the given restrictions throws an `InvalidOperationException` naming the leg rather than contributing zero. Build a `MovementRequest` directly when you need custom non-sea speeds, port dwell or emission factors.
 
 Codes resolve in this order:
 
