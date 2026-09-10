@@ -135,7 +135,7 @@ static void PrintMovement(string title, string legs, IReadOnlyDictionary<string,
     foreach (var line in legs.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         Console.WriteLine("   " + line);
     Console.WriteLine();
-    Console.WriteLine($"   {"Leg",-4}{"Kind",-10}{"Mode",-6}{"From",-7}{"To",-7}{"Distance",12}{"Time",9}  Via");
+    Console.WriteLine($"   {"Leg",-4}{"Kind",-10}{"Mode",-6}{"From",-7}{"To",-7}{"Distance",12}{"Time",9}  Choke points");
     foreach (var leg in movement.Legs)
     {
         Console.WriteLine(
