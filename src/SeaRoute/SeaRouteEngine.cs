@@ -302,8 +302,10 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
 
         string code = location.Code!;
 
+        // A caller-supplied coordinate wins outright. The embedded port record is not attached, because its
+        // stored position may differ from the override (the dataset's CNSHG is Sanshan, not Shanghai).
         if (request.Coordinates.TryGetValue(code, out var overridden))
-            return new ResolvedLocation(code, port?.Name, overridden, port);
+            return new ResolvedLocation(code, null, overridden, null);
 
         if (port != null)
             return new ResolvedLocation(code, port.Name, port.Coordinate, port);

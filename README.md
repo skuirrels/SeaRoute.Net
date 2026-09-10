@@ -230,7 +230,7 @@ string geoJson = movement.ToJson();   // FeatureCollection, one feature per leg
 
 Each leg feature carries `leg`, `mode`, `kind`, `from` and `to` in its properties, and the collection carries `total_length`, `units`, `total_duration_hours` and `legs`. Every leg starts and ends at its resolved locations, so consecutive legs join end to end; `AppendOriginDestination` is always on for movement legs. A sea leg with no route under the given restrictions throws an `InvalidOperationException` naming the leg rather than contributing zero. Build a `MovementRequest` directly to set sea options, per-mode speeds or a resolver.
 
-Codes resolve in this order: a coordinate supplied by the caller, the embedded port list, then an `ILocationResolver` if one is set. Check port matches: for example `CNSHG` is Sanshan on the Yangtze, while Shanghai is `CNSHA`. An unknown code with no coordinate throws an `ArgumentException` naming the code rather than guessing.
+Codes resolve in this order: a coordinate supplied by the caller, the embedded port list, then an `ILocationResolver` if one is set. Check that the embedded list agrees with your code conventions before relying on it. Carriers use `CNSHG` for the Port of Shanghai and `CNSHA` for Hongqiao airport, but the embedded list holds `CNSHG` as Sanshan, an inland Yangtze port, and puts Shanghai's seaport under `CNSHA`. Supplying a coordinate for a code overrides the list, as the sample and tests do for `CNSHG`. An unknown code with no coordinate throws an `ArgumentException` naming the code rather than guessing.
 
 ## Options reference
 

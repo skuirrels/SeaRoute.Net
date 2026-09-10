@@ -71,6 +71,8 @@ An entry in the embedded world ports database:
 | `ToCountries` | Permitted destination countries, populated for 747 ports; used by `CountryRestricted` |
 | `Longitude`, `Latitude` | Port position |
 
+Port codes in the list follow the source dataset, not carrier convention, so check them before relying on them. The clearest case is Shanghai: carriers use `CNSHG` for the seaport and `CNSHA` for Hongqiao airport, but the list holds `CNSHG` as Sanshan, an inland port on the Yangtze, and Shanghai's seaport at Wusongkou under `CNSHA`. A movement can supply its own coordinate for any code to override the list.
+
 A port becomes a waypoint in two ways. Routing by port code uses the port position as the request point directly. Routing with `IncludePorts = true` replaces each request point with the nearest port that passes the filters in `PortParameters`: terminals only, country of loading, country of discharge, and strict or lenient matching. The chosen ports are reported in `port_origin` and `port_dest`.
 
 Paris to Tokyo with `IncludePorts` and `OnlyTerminals` produces this sequence: Paris (2.3) → Rouen `FRURO` (2.4) → snapped node (2.2) → a run of network nodes (2.1) → snapped node (2.2) → Tokyo `JPTYO` (2.4) → Tokyo city (2.3).

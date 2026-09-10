@@ -12,7 +12,9 @@ public sealed class MovementRequest
 
     /// <summary>
     /// Coordinates for location codes, keyed case-insensitively by code. Checked before the embedded port
-    /// database, so an entry here overrides a port's stored position.
+    /// database, so an entry here overrides a port's stored position; the port record is then not attached
+    /// to the leg. Use this when the embedded list disagrees with your code conventions, for example CNSHG,
+    /// which the list holds as Sanshan rather than the Port of Shanghai.
     /// </summary>
     public Dictionary<string, Coordinate> Coordinates { get; } = new(StringComparer.OrdinalIgnoreCase);
 

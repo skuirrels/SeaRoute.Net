@@ -21,10 +21,12 @@ public class MovementTests
         Delivery from port AUMEL to place AUMRS Sea
         """;
 
-    // Codes absent from the embedded port list, supplied by the caller.
+    // Codes the caller supplies: places absent from the embedded port list, plus CNSHG, which carriers use
+    // for the Port of Shanghai but which the embedded list holds as Sanshan, an inland Yangtze port.
     private static readonly Dictionary<string, Coordinate> ExtraPlaces = new(StringComparer.OrdinalIgnoreCase)
     {
         ["GBLGW"] = new Coordinate(-0.190278, 51.148056),   // London Gatwick
+        ["CNSHG"] = new Coordinate(121.497113, 31.400091),  // Port of Shanghai, Wusongkou
         ["CNSHZ"] = new Coordinate(114.057868, 22.543099),  // Shenzhen
         ["AUMRS"] = new Coordinate(145.13, -37.92)          // placeholder near Melbourne
     };
@@ -81,9 +83,11 @@ public class MovementTests
         var main = result.Legs[1];
         main.Leg.Mode.Should().Be(TransportMode.Sea);
         main.Feature.Geometry.Coordinates.Count.Should().BeGreaterThan(20);
-        main.Length.Should().BeGreaterThan(15000.0);
         main.Feature.Properties.PortOrigin!.PortCode.Should().Be("GBFXT");
-        main.Feature.Properties.PortDest!.PortCode.Should().Be("CNSHG");
+        main.To.Label.Should().Be("CNSHG");
+        main.To.Port.Should().BeNull("a caller-supplied coordinate replaces the embedded record, which is Sanshan");
+        main.Feature.Properties.PortDest.Should().BeNull();
+        main.Length.Should().BeInRange(19000.0, 20500.0, "Felixstowe to the Port of Shanghai via Suez");
 
         var delivery = result.Legs[2];
         delivery.Leg.Kind.Should().Be(LegKind.Delivery);
