@@ -82,7 +82,7 @@ Implementation notes:
 `CalculateRoute` returns a `GeoJsonFeature`. `ToJson()` serialises it to standard GeoJSON that Leaflet, Mapbox GL, OpenLayers, deck.gl, QGIS and PostGIS all consume directly.
 
 <p align="center">
-  <img src="docs/diagrams/output-model.png" alt="SeaRoute.Net output model: a GeoJsonFeature holds a GeoJsonLineString geometry and SeaRouteProperties with length, units, duration, traversed passages, optional origin and destination Port entities and, for movement legs, leg, mode, kind, from and to; a movement is a GeoJsonFeatureCollection of leg features with MovementProperties totals" width="100%">
+  <img src="docs/diagrams/output-model.png" alt="SeaRoute.Net output model: a GeoJsonFeature holds a GeoJsonLineString geometry and SeaRouteProperties with length, units, duration, traversed passages, optional origin and destination Port entities and, for movement legs, leg, mode, kind, from, to, port and transit hours and CO2e; a movement is a GeoJsonFeatureCollection of leg features with MovementProperties totals" width="100%">
 </p>
 
 Source: [docs/diagrams/output-model.svg](docs/diagrams/output-model.svg) (vector) and [output-model.html](docs/diagrams/output-model.html).
