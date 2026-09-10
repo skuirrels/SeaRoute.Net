@@ -13,57 +13,52 @@ bool printGeoJson = args.Contains("--geojson", StringComparer.OrdinalIgnoreCase)
 Console.WriteLine("SeaRoute.Net sample");
 Console.WriteLine(new string('=', 60));
 
-// 1. Coordinates in, GeoJSON feature out. First call also decompresses the embedded datasets.
+// 1. Coordinates in, GeoJSON feature out. This is how to route a place by position: pass its longitude and
+//    latitude yourself, for a location the embedded data does not know or when you hold exact positions.
+//    Marseille and Cape Town are FRMRS and ZACPT in the data; this pair is kept as coordinates because it is
+//    the reference route the routing tests are measured against. Every other example names places by code.
 var stopwatch = Stopwatch.StartNew();
 var marseille = new Coordinate(5.333333, 43.333333);
 var capeTown = new Coordinate(18.366667, -33.916667);
 var route = SeaRouter.Calculate(marseille, capeTown, appendOrigDest: true);
 stopwatch.Stop();
 
-Print("1. Marseille to Cape Town",
+Print("1. Marseille to Cape Town, given as coordinates",
     $"{route.Properties.Length:N1} {route.Properties.Units}, " +
     $"{route.Properties.DurationHours:N1} h at 16 kn, " +
     $"{route.Geometry.Coordinates.Count} points, cold start {stopwatch.ElapsedMilliseconds} ms");
 
-// 2. Passage restrictions: avoid Suez, so the route goes round the Cape of Good Hope.
-var gulf = new Coordinate(52.99, 25.01);
-var caribbean = new Coordinate(-61.87, 17.15);
-var viaCape = SeaRouter.Calculate(gulf, caribbean, restrictions: [Passage.Suez], returnPassages: true);
-Print("2. Persian Gulf to Caribbean avoiding Suez",
-    $"{viaCape.Properties.Length:N0} km via {string.Join(", ", viaCape.Properties.TraversedPassages!)}");
+// 2. Passage restrictions: Jebel Ali to St John's, Antigua, avoiding Suez, so the route goes round the Cape.
+var viaCape = SeaRouter.Calculate(At("AEJEA"), At("AGSJO"), restrictions: [Passage.Suez], returnPassages: true);
+Print("2. AEJEA Jebel Ali to AGSJO St John's avoiding Suez",
+    $"{viaCape.Properties.Length:N0} km via {PassageNames(viaCape.Properties.TraversedPassages)}");
 
-// 3. Port codes (UN/LOCODE) in.
+// 3. Port codes (UN/LOCODE) straight into the port-to-port overload.
 var portToPort = SeaRouter.Calculate("FRLEH", "CNTSN");
 Print("3. FRLEH to CNTSN by port code",
     $"{portToPort.Properties.PortOrigin!.Name} to {portToPort.Properties.PortDest!.Name}, {portToPort.Properties.Length:N0} km");
 
-// 4. Inland points resolved to the nearest container terminals.
-var paris = new Coordinate(2.333333, 48.866667);
-var tokyo = new Coordinate(139.679174, 35.778467);
+// 4. Inland places resolved to the nearest container terminals.
 var viaPorts = SeaRouter.Calculate(
-    paris, tokyo,
+    At("FRPAR"), At("JPTYO"),
     includePorts: true,
     appendOrigDest: true,
     portParams: new PortParameters { OnlyTerminals = true });
-Print("4. Paris to Tokyo via nearest terminals",
+Print("4. FRPAR Paris to JPTYO Tokyo via nearest terminals",
     $"{viaPorts.Properties.PortOrigin?.PortCode} ({viaPorts.Properties.PortOrigin?.Name}) to " +
     $"{viaPorts.Properties.PortDest?.PortCode} ({viaPorts.Properties.PortDest?.Name}), {viaPorts.Properties.Length:N0} km");
 
 // 5. Alternative algorithm and units.
-var yokohama = new Coordinate(139.64, 35.44);
-var losAngeles = new Coordinate(-118.24, 33.74);
-var transPacific = SeaRouter.Calculate(yokohama, losAngeles, units: DistanceUnit.NauticalMiles, algorithm: "astar");
-Print("5. Yokohama to Los Angeles, A*, nautical miles",
+var transPacific = SeaRouter.Calculate(At("JPYOK"), At("USLAX"), units: DistanceUnit.NauticalMiles, algorithm: "astar");
+Print("5. JPYOK Yokohama to USLAX Los Angeles, A*, nautical miles",
     $"{transPacific.Properties.Length:N0} {transPacific.Properties.Units}, crosses the antimeridian without a longitude jump");
 
 // 6. Unreachable when every passage is closed: empty geometry, zero length.
-var singapore = new Coordinate(103.85457, 1.25760);
-var piraeus = new Coordinate(23.62904, 37.94056);
-var blocked = SeaRouter.Calculate(singapore, piraeus, restrictions: [Passage.Suez, Passage.Gibraltar]);
-Print("6. Singapore to Piraeus with Suez and Gibraltar closed",
+var blocked = SeaRouter.Calculate(At("SGSIN"), At("GRPIR"), restrictions: [Passage.Suez, Passage.Gibraltar]);
+Print("6. SGSIN Singapore to GRPIR Piraeus with Suez and Gibraltar closed",
     $"{blocked.Geometry.Coordinates.Count} points, {blocked.Properties.Length} km");
 
-// 7. Preferred ports per area: one route per port share.
+// 7. Preferred ports per area: one route per port share. The polygon is Belgium's border, so it is coordinates.
 Coordinate[] belgium =
 [
     new(2.539, 51.129), new(2.658, 50.797), new(3.123, 50.780), new(4.180, 50.029),
@@ -73,13 +68,12 @@ Coordinate[] belgium =
     new(2.539, 51.129)
 ];
 var areaBelgium = new AreaFeature(belgium, "BE", [new PortProps("BEANR", 250), new PortProps("FRLEH", 200)]);
-var brussels = new Coordinate(4.352, 50.851);
-var routes = SeaRouter.CalculateRoutes(brussels, tokyo, new SeaRouteOptions
+var routes = SeaRouter.CalculateRoutes(At("BEBRU"), At("JPTYO"), new SeaRouteOptions
 {
     IncludePorts = true,
     PortParameters = new PortParameters { PortsInAreasFrom = [areaBelgium] }
 });
-Print("7. Brussels to Tokyo with weighted preferred ports",
+Print("7. BEBRU Brussels to JPTYO Tokyo with weighted preferred ports",
     string.Join("; ", routes.Select(r =>
         $"{r.Properties.PortOrigin?.PortCode} share {r.Properties.PortOrigin?.Share:P0}: {r.Properties.Length:N0} km")));
 
@@ -88,16 +82,16 @@ string geoJson = route.ToJson(writeIndented: printGeoJson);
 Print("8. GeoJSON", printGeoJson ? Environment.NewLine + geoJson : $"{geoJson.Length:N0} characters, first 100: {geoJson[..100]}...");
 
 // 9. The README diagram's worked example: Shanghai to London, following each step.
-var shanghai = new Coordinate(121.47, 31.23);
-var london = new Coordinate(-0.12, 51.51);
+var shanghai = SeaRouter.Locate("CNSHG");
+var london = SeaRouter.Locate("GBLON");
 var graph = SeaRouteEngine.Default.Graph;
-var shanghaiLane = graph.GetCoordinate(graph.FindNearestNode(shanghai));
-var londonLane = graph.GetCoordinate(graph.FindNearestNode(london));
-var lanePath = SeaRouter.Calculate(shanghai, london, returnPassages: true);
-var finished = SeaRouter.Calculate(shanghai, london, appendOrigDest: true);
-Print("9. Shanghai to London, step by step",
-    $"request        from 121.47°E 31.23°N to 0.12°W 51.51°N, km, 16 knots{Environment.NewLine}" +
-    $"   snap           Shanghai lane point {Haversine.Distance(shanghai, shanghaiLane):N1} km away, London lane point {Haversine.Distance(london, londonLane):N1} km away{Environment.NewLine}" +
+var shanghaiLane = graph.GetCoordinate(graph.FindNearestNode(shanghai.Coordinate));
+var londonLane = graph.GetCoordinate(graph.FindNearestNode(london.Coordinate));
+var lanePath = SeaRouter.Calculate(shanghai.Coordinate, london.Coordinate, returnPassages: true);
+var finished = SeaRouter.Calculate(shanghai.Coordinate, london.Coordinate, appendOrigDest: true);
+Print("9. CNSHG Shanghai to GBLON London, step by step",
+    $"request        CNSHG {shanghai.Name} ({shanghai.Source}) to GBLON {london.Name} ({london.Source}), km, 16 knots{Environment.NewLine}" +
+    $"   snap           Shanghai lane point {Haversine.Distance(shanghai.Coordinate, shanghaiLane):N1} km away, London lane point {Haversine.Distance(london.Coordinate, londonLane):N1} km away{Environment.NewLine}" +
     $"   shortest path  {lanePath.Geometry.Coordinates.Count} lane points, {lanePath.Properties.Length:N0} km via {PassageNames(lanePath.Properties.TraversedPassages)}{Environment.NewLine}" +
     $"   finished route {finished.Geometry.Coordinates.Count} points, {finished.Properties.Length:N0} km, {finished.Properties.DurationHours:N1} h{Environment.NewLine}" +
     $"   result         GeoJSON Feature, {finished.ToJson().Length:N0} characters");
@@ -167,6 +161,9 @@ static string PassageNames(IReadOnlyList<string>? tags)
         _ => char.ToUpperInvariant(t[0]) + t[1..]
     }));
 }
+
+// Position of a UN/LOCODE from the embedded port list or UN/LOCODE list.
+static Coordinate At(string code) => SeaRouter.Locate(code).Coordinate;
 
 static void Print(string title, string detail)
 {

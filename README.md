@@ -45,16 +45,16 @@ Console.WriteLine($"{route.Properties.Length:N0} {route.Properties.Units}, {rout
 Every request goes through the same six steps, in order. The datasets are decompressed and indexed once on first use, then shared read-only by every thread.
 
 <p align="center">
-  <img src="docs/diagrams/routing-pipeline.png" alt="SeaRoute.Net routing pipeline in six numbered steps: take the request, optionally resolve ports, snap each end to the nearest shipping-lane point, find the shortest path along the lanes avoiding closed passages, add the real endpoints and measure length and time, return a GeoJSON feature. A strip below follows Shanghai to London through each step." width="100%">
+  <img src="docs/diagrams/routing-pipeline.png" alt="SeaRoute.Net routing pipeline in six numbered steps: take the request, optionally resolve ports, snap each end to the nearest shipping-lane point, find the shortest path along the lanes avoiding closed passages, add the real endpoints and measure length and time, return a GeoJSON feature. A strip below follows Shanghai (CNSHG) to London (GBLON) through each step." width="100%">
 </p>
 
 Source: [docs/diagrams/routing-pipeline.svg](docs/diagrams/routing-pipeline.svg) (vector) and [routing-pipeline.html](docs/diagrams/routing-pipeline.html).
 
 1. **Take the request.** An origin and a destination, as coordinates or UN/LOCODE port codes, plus options such as units, vessel speed and closed passages.
 2. **Resolve ports** only if `IncludePorts` is set. Each end is swapped for its nearest port from the embedded list of 3,955, optionally limited to container terminals or a country.
-3. **Snap to the lane network.** Each end is matched to the nearest point on Marnet, Eurostat's map of shipping lanes, using a KD-tree. Shanghai's request point is 32 km from its lane point, London's 23 km.
-4. **Find the shortest path** along the lanes with bidirectional Dijkstra, or A* on request. Lane links through a closed canal or strait are skipped; the Northwest Passage is closed by default. Shanghai to London gives 152 lane points over 19,505 km, through Malacca, Bab-el-Mandeb, Suez and Gibraltar.
-5. **Finish the route.** With `AppendOriginDestination` the real endpoints are added, longitudes are unwrapped across the antimeridian, and length and duration are measured: 154 points, 19,560 km, 660 hours at 16 knots.
+3. **Snap to the lane network.** Each end is matched to the nearest point on Marnet, Eurostat's map of shipping lanes, using a KD-tree. Shanghai's port position is 18 km from its lane point, London's 23 km.
+4. **Find the shortest path** along the lanes with bidirectional Dijkstra, or A* on request. Lane links through a closed canal or strait are skipped; the Northwest Passage is closed by default. Shanghai to London gives 154 lane points over 19,397 km, through Malacca, Bab-el-Mandeb, Suez and Gibraltar.
+5. **Finish the route.** With `AppendOriginDestination` the real endpoints are added, longitudes are unwrapped across the antimeridian, and length and duration are measured: 156 points, 19,438 km, 656 hours at 16 knots.
 6. **Return a GeoJSON Feature**: a LineString for the map plus distance, units, duration, the ports used and the passages traversed.
 
 ### Terms
@@ -87,19 +87,19 @@ Implementation notes:
 
 Source: [docs/diagrams/output-model.svg](docs/diagrams/output-model.svg) (vector) and [output-model.html](docs/diagrams/output-model.html).
 
-Example output for the Persian Gulf to the Caribbean with Suez closed, trimmed for length:
+Example output for Jebel Ali (AEJEA) to St John's, Antigua (AGSJO) with Suez closed, trimmed for length:
 
 ```json
 {
   "type": "Feature",
   "geometry": {
     "type": "LineString",
-    "coordinates": [[52.99, 25.01], [56.4, 26.6], [57.2, 24.4], "...", [-61.87, 17.15]]
+    "coordinates": [[55.05, 25.02], [56.4, 26.6], [57.2, 24.4], "...", [-61.85, 17.12]]
   },
   "properties": {
-    "length": 19463.2,
+    "length": 19258.0,
     "units": "km",
-    "duration_hours": 437.9,
+    "duration_hours": 650.0,
     "traversed_passages": ["ormuz", "south_africa"]
   }
 }
@@ -147,10 +147,10 @@ public sealed class ShippingController(ISeaRouteEngine seaRoute) : ControllerBas
 }
 ```
 
-The static `SeaRouter` class wraps the same engine with named parameters, one per option:
+The static `SeaRouter` class wraps the same engine with named parameters, one per option. `SeaRouter.Locate` turns a UN/LOCODE into a position from the embedded lists, so most callers never type a coordinate; the quick start above passes coordinates only to show how a place the data does not know is supplied.
 
 ```csharp
-var route = SeaRouter.Calculate(origin, destination, appendOrigDest: true);
+var route = SeaRouter.Calculate(SeaRouter.Locate("FRMRS").Coordinate, SeaRouter.Locate("ZACPT").Coordinate, appendOrigDest: true);
 ```
 
 ### Avoiding canals and straits
@@ -159,8 +159,8 @@ var route = SeaRouter.Calculate(origin, destination, appendOrigDest: true);
 using SeaRoute.Passages;
 
 var route = SeaRouter.Calculate(
-    new Coordinate(52.99, 25.01),     // Persian Gulf
-    new Coordinate(-61.87, 17.15),    // Caribbean
+    SeaRouter.Locate("AEJEA").Coordinate,   // Jebel Ali
+    SeaRouter.Locate("AGSJO").Coordinate,   // St John's, Antigua
     restrictions: [Passage.Suez],
     returnPassages: true);
 
@@ -182,8 +182,8 @@ Console.WriteLine($"{route.Properties.PortOrigin!.Name} to {route.Properties.Por
 using SeaRoute.Ports;
 
 var route = SeaRouter.Calculate(
-    new Coordinate(2.333333, 48.866667),      // Paris
-    new Coordinate(139.679174, 35.778467),    // Tokyo
+    SeaRouter.Locate("FRPAR").Coordinate,    // Paris, inland
+    SeaRouter.Locate("JPTYO").Coordinate,    // Tokyo
     includePorts: true,
     appendOrigDest: true,
     portParams: new PortParameters { OnlyTerminals = true });
@@ -199,7 +199,7 @@ var belgium = new AreaFeature(
     name: "BE",
     preferredPorts: [new PortProps("BEANR", share: 250), new PortProps("FRLEH", share: 200)]);
 
-var routes = SeaRouteEngine.Default.CalculateRoutes(brussels, tokyo, new SeaRouteOptions
+var routes = SeaRouteEngine.Default.CalculateRoutes(SeaRouter.Locate("BEBRU").Coordinate, SeaRouter.Locate("JPTYO").Coordinate, new SeaRouteOptions
 {
     IncludePorts = true,
     PortParameters = new PortParameters { PortsInAreasFrom = [belgium] }
@@ -301,7 +301,7 @@ Everything here is deliberate and documented, but each is a simplification you s
 
 - **Port list versus UN/LOCODE tie-break.** When both lists know a code, the port list position is used only if the two names match or one is a prefix of the other after stripping accents and punctuation. If they disagree, UN/LOCODE's position is used and no port record is attached. Check `Source` on the resolved location when it matters.
 - **Supplemented coordinates.** Four codes have coordinates researched by hand rather than published by UNECE; the supplement file names each source.
-- **Port list provenance.** The 3,955-port list is inherited from the original Python project without a documented source. It disagrees with UN/LOCODE in places, for example `CNSHG` and `CNTSN`.
+- **Port list provenance.** The 3,955-port list ships without a documented source. It disagrees with UN/LOCODE in places, for example `CNSHG` and `CNTSN`.
 - **Single routes with several area matches** return the first feature from `CalculateRoute`; use `CalculateRoutes` to see them all.
 - **Single routes with no path** return empty geometry and zero length rather than throwing; movement legs throw.
 - **Untagged lane links.** Three internal tags in the lane data, `segment`, `segment2` and `pacific_ocean`, stitch the antimeridian and are never reported or restrictable.

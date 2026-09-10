@@ -551,6 +551,24 @@ public class MovementTests
         result.TotalTransitHours.Should().Be(result.TotalDurationHours);
     }
 
+    [Fact]
+    public void Locate_ResolvesCodesFromPortsThenUnLocode()
+    {
+        var paris = SeaRouter.Locate("FRPAR");
+        paris.Source.Should().Be("unlocode", "Paris is not a sea port");
+        paris.Coordinate.Latitude.Should().BeApproximately(48.85, 0.01);
+
+        var london = SeaRouter.Locate("gblon");
+        london.Source.Should().Be("ports");
+        london.Port!.Name.Should().Be("London");
+
+        var jebelAli = SeaRouter.Locate("AEJEA");
+        jebelAli.Source.Should().Be("ports", "UN/LOCODE has no coordinates for Jebel Ali");
+
+        var act = () => SeaRouter.Locate("XXZZZ");
+        act.Should().Throw<ArgumentException>().WithMessage("*XXZZZ*");
+    }
+
     private sealed class CountingResolver(params (string Code, Coordinate Coordinate)[] entries) : ILocationResolver
     {
         public int Calls { get; private set; }

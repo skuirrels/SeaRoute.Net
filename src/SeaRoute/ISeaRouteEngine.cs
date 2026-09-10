@@ -48,4 +48,11 @@ public interface ISeaRouteEngine
     /// </summary>
     MovementResult CalculateMovement(MovementRequest request)
         => throw new NotSupportedException($"{GetType().Name} does not support multi-leg movements.");
+
+    /// <summary>
+    /// Resolves a UN/LOCODE to a position using the embedded port list and UN/LOCODE list, the same way movement
+    /// legs are resolved. Throws <see cref="ArgumentException"/> when neither list can place the code.
+    /// </summary>
+    ResolvedLocation Locate(string code)
+        => throw new NotSupportedException($"{GetType().Name} does not support code lookup.");
 }

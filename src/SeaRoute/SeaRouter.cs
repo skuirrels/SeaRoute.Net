@@ -139,6 +139,11 @@ public static class SeaRouter
     }
 
     /// <summary>
+    /// Resolves a UN/LOCODE to a position from the embedded port list and UN/LOCODE list.
+    /// </summary>
+    public static ResolvedLocation Locate(string code) => Engine.Locate(code);
+
+    /// <summary>
     /// Routes a multi-leg movement.
     /// </summary>
     public static MovementResult CalculateMovement(MovementRequest request)

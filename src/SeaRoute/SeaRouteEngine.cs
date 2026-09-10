@@ -354,6 +354,18 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
         if (request.Coordinates.TryGetValue(code, out var overridden))
             return new ResolvedLocation(code, null, overridden, null, "coordinates");
 
+        return ResolveCode(code, request.Resolver);
+    }
+
+    /// <inheritdoc />
+    public ResolvedLocation Locate(string code)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+        return ResolveCode(code.Trim().ToUpperInvariant(), null);
+    }
+
+    private ResolvedLocation ResolveCode(string code, ILocationResolver? resolver)
+    {
         Port? port = Ports.GetByCode(code);
         UnLocode? unLocode = UnLocodes.GetByCode(code);
 
@@ -368,7 +380,7 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
         if (port != null)
             return new ResolvedLocation(code, port.Name, port.Coordinate, port, "ports");
 
-        if (request.Resolver != null && request.Resolver.TryResolve(code, out var fromResolver, out var name))
+        if (resolver != null && resolver.TryResolve(code, out var fromResolver, out var name))
             return new ResolvedLocation(code, name, fromResolver, null, "resolver");
 
         string known = unLocode != null
