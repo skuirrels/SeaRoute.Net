@@ -324,6 +324,33 @@ public class MovementTests
         }
     }
 
+    [Fact]
+    public void Movement_AirLegs_AreStraightLinesWithNoLanePointsOrChokePoints()
+    {
+        var request = new MovementRequest
+        {
+            Legs = MovementParser.Parse("""
+                Pickup GBLGW to Airport GBLHR Road
+                Airport GBLHR to Airport AUMEL Air
+                Delivery from airport AUMEL to place AUMRS Road
+                """),
+            SeaOptions = new SeaRouteOptions { ReturnPassages = true }
+        };
+        request.Coordinates["GBLGW"] = ExtraPlaces["GBLGW"];
+        request.Coordinates["GBLHR"] = new Coordinate(-0.4543, 51.4700);   // Heathrow
+        request.Coordinates["AUMRS"] = ExtraPlaces["AUMRS"];
+
+        var result = SeaRouteEngine.Default.CalculateMovement(request);
+
+        var flight = result.Legs[1];
+        flight.Leg.Mode.Should().Be(TransportMode.Air);
+        flight.Feature.Geometry.Coordinates.Should().HaveCount(2, "an air leg is one straight great-circle line");
+        flight.Length.Should().BeInRange(16500.0, 17300.0, "Heathrow to Melbourne great-circle distance");
+        flight.DurationHours.Should().BeApproximately(flight.Length / 800.0, 1e-6);
+        flight.Feature.Properties.TraversedPassages.Should().BeNullOrEmpty();
+        result.LengthByMode.Should().ContainKeys(TransportMode.Air, TransportMode.Road);
+    }
+
     private sealed class CountingResolver(params (string Code, Coordinate Coordinate)[] entries) : ILocationResolver
     {
         public int Calls { get; private set; }

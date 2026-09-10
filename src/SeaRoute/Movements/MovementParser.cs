@@ -3,17 +3,17 @@ using System.Text.RegularExpressions;
 namespace SeaRoute.Movements;
 
 /// <summary>
-/// Parses leg lines in the form <c>[Pickup|Delivery] [from] [port|place] CODE to [port|place] CODE MODE</c>.
+/// Parses leg lines in the form <c>[Pickup|Delivery] [from] [port|place|airport|station|terminal|depot] CODE to [...] CODE MODE</c>.
 /// Mode and kind words are validated against <see cref="TransportModeExtensions"/>.
 /// </summary>
 public static partial class MovementParser
 {
     [GeneratedRegex(
-        @"^\s*(?:(?<kind>[a-z]+)\s+)??(?:from\s+)?(?:(?:port|place)\s+)?(?<from>[A-Z]{2}[A-Z0-9]{3})\s+to\s+(?:(?:port|place)\s+)?(?<to>[A-Z]{2}[A-Z0-9]{3})\s+(?<mode>[a-z]+)\s*\.?\s*$",
+        @"^\s*(?:(?<kind>[a-z]+)\s+)??(?:from\s+)?(?:(?:port|place|airport|station|terminal|depot)\s+)?(?<from>[A-Z]{2}[A-Z0-9]{3})\s+to\s+(?:(?:port|place|airport|station|terminal|depot)\s+)?(?<to>[A-Z]{2}[A-Z0-9]{3})\s+(?<mode>[a-z]+)\s*\.?\s*$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex LegLine();
 
-    private const string ExpectedForm = "[Pickup|Delivery] [port|place] CODE to [port|place] CODE Sea|Road|Rail|Air";
+    private const string ExpectedForm = "[Pickup|Delivery] [port|place|airport|station|terminal|depot] CODE to [port|place|airport|...] CODE Sea|Road|Rail|Air";
 
     /// <summary>
     /// Parses one leg per non-blank line. Throws <see cref="FormatException"/> naming the first line, by its

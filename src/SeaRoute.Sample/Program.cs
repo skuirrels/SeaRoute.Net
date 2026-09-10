@@ -126,6 +126,15 @@ PrintMovement("11. Movement with several sea legs", """
     Delivery from port AUMEL to place AUMRS Sea
     """, places);
 
+PrintMovement("12. Movement with an air leg", """
+    Pickup GBLGW to Airport GBLHR Road
+    Airport GBLHR to Airport AUMEL Air
+    Delivery from airport AUMEL to place AUMRS Road
+    """, new Dictionary<string, Coordinate>(places, StringComparer.OrdinalIgnoreCase)
+{
+    ["GBLHR"] = new(-0.4543, 51.4700)         // London Heathrow
+});
+
 static void PrintMovement(string title, string legs, IReadOnlyDictionary<string, Coordinate> places)
 {
     var movement = SeaRouter.CalculateMovement(legs, places, new SeaRouteOptions { ReturnPassages = true });

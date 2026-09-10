@@ -210,7 +210,7 @@ var routes = SeaRouteEngine.Default.CalculateRoutes(brussels, tokyo, new SeaRout
 
 ### Multi-leg movements
 
-A movement is a list of legs, one per line, in the form `[Pickup|Delivery] [port|place] CODE to [port|place] CODE MODE`. Sea legs are routed on the network. Road, rail and air legs are straight great-circle lines with a configurable speed per mode.
+A movement is a list of legs, one per line, in the form `[Pickup|Delivery] [port|place|airport|station|terminal|depot] CODE to [...] CODE MODE`, where MODE is Sea, Road, Rail or Air. Sea legs are routed on the lane network. Road, rail and air legs are straight great-circle lines between their two waypoints, never touching lane points or choke points, with a configurable speed per mode: 60, 80 and 800 km/h by default.
 
 <p align="center">
   <img src="docs/diagrams/movement-flow.png" alt="SeaRoute.Net movement flow: leg lines are parsed, each leg's locations resolved, sea legs routed on Marnet and road, rail or air legs measured as straight lines, producing one feature per leg and a FeatureCollection with totals" width="70%">
@@ -327,7 +327,7 @@ dotnet test tests/SeaRoute.Tests
 dotnet run --project src/SeaRoute.Sample
 ```
 
-The sample prints eleven worked examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes, GeoJSON output, the Shanghai to London walkthrough and two multi-leg movements printed as tables. Add `--geojson` to print a full feature.
+The sample prints twelve worked examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes, GeoJSON output, the Shanghai to London walkthrough and three multi-leg movements printed as tables, one with an air leg. Add `--geojson` to print a full feature.
 
 To produce the NuGet package locally:
 
