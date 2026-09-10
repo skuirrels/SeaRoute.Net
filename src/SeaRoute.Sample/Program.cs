@@ -103,39 +103,34 @@ Print("9. Shanghai to London, step by step",
     $"   result         GeoJSON Feature, {finished.ToJson().Length:N0} characters");
 
 // 10 to 12. Multi-leg movements, one leg per line. Sea legs are routed; road and air legs are straight lines.
-//    Codes resolve from the embedded port list and UN/LOCODE list. UN/LOCODE publishes no coordinates for
-//    about a fifth of its entries, including these three, so the caller supplies them.
-var places = new Dictionary<string, Coordinate>(StringComparer.OrdinalIgnoreCase)
-{
-    ["GBLGW"] = new(-0.190278, 51.148056),   // Gatwick Apt/London
-    ["CNSHZ"] = new(121.4737, 31.2304),      // Shanghai Railway Station
-    ["AUMRS"] = new(145.13, -37.92)          // Melrose, placeholder near Melbourne
-};
+//    Every code here resolves from the embedded port list or UN/LOCODE list, so no coordinates are supplied.
+//    UN/LOCODE publishes no coordinates for about a fifth of its codes (Gatwick GBLGW, for one); pass those
+//    in the coordinates argument or use codes that carry them, as these examples do.
 
 PrintMovement("10. Movement with one sea leg", """
-    Pickup GBLGW to Port GBFXT Road
+    Pickup GBSLO to Port GBFXT Road
     Port GBFXT to Port CNSHG Sea
-    Delivery from port CNSHG to place CNSHZ Sea
-    """, places);
+    Delivery from port CNSHG to port CNSZP Sea
+    """);
 
 PrintMovement("11. Movement with several sea legs, a light 12 t load in one 40-foot container", """
-    Pickup GBLGW to Port GBFXT Road
+    Pickup GBSLO to Port GBFXT Road
     Port GBFXT to Port SGSIN Sea
     Port SGSIN to Port AUMEL Sea
-    Delivery from port AUMEL to place AUMRS Sea
-    """, places, tonnes: 12.0, teu: 2.0);
+    Delivery from port AUMEL to place AUALT Road
+    """, tonnes: 12.0, teu: 2.0);
 
 PrintMovement("12. Movement with an air leg", """
-    Pickup GBLGW to Airport GBLHR Road
+    Pickup GBSLO to Airport GBLHR Road
     Airport GBLHR to Airport AUMEL Air
-    Delivery from airport AUMEL to place AUMRS Road
-    """, places);   // GBLHR (Heathrow) resolves from the UN/LOCODE list
+    Delivery from airport AUMEL to place AUALT Road
+    """);
 
-static void PrintMovement(string title, string legs, IReadOnlyDictionary<string, Coordinate> places, double tonnes = 20.0, double? teu = null)
+static void PrintMovement(string title, string legs, double tonnes = 20.0, double? teu = null)
 {
     // CO2e per leg uses GLEC well-to-wheel defaults per mode. With a TEU count, sea legs are charged per
     // container (76 g per TEU-km) rather than per tonne, so a light box is not under-counted.
-    var movement = SeaRouter.CalculateMovement(legs, places, new SeaRouteOptions { ReturnPassages = true }, cargoTonnes: tonnes, cargoTeu: teu);
+    var movement = SeaRouter.CalculateMovement(legs, seaOptions: new SeaRouteOptions { ReturnPassages = true }, cargoTonnes: tonnes, cargoTeu: teu);
 
     Console.WriteLine();
     Console.WriteLine(title);

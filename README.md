@@ -222,21 +222,15 @@ Source: [docs/diagrams/movement-flow.svg](docs/diagrams/movement-flow.svg) (vect
 using SeaRoute.Movements;
 
 const string legs = """
-    Pickup GBLGW to Port GBFXT Road
+    Pickup GBSLO to Port GBFXT Road
     Port GBFXT to Port SGSIN Sea
     Port SGSIN to Port AUMEL Sea
-    Delivery from port AUMEL to place AUMRS Sea
+    Delivery from port AUMEL to place AUALT Road
     """;
 
-// GBFXT, SGSIN and AUMEL resolve from the embedded lists. UN/LOCODE has no coordinates for GBLGW or AUMRS,
-// so the caller supplies them.
-var places = new Dictionary<string, Coordinate>
-{
-    ["GBLGW"] = new(-0.190278, 51.148056),
-    ["AUMRS"] = new(145.13, -37.92)
-};
-
-var movement = SeaRouter.CalculateMovement(legs, places);
+// Every code resolves from the embedded port list or UN/LOCODE list. For a code UN/LOCODE leaves
+// uncoordinated, pass a dictionary of coordinates as the second argument.
+var movement = SeaRouter.CalculateMovement(legs);
 
 foreach (var leg in movement.Legs)
     Console.WriteLine($"{leg.Sequence} {leg.Leg.Mode} {leg.From.Label} to {leg.To.Label}: {leg.Length:N0} km");
@@ -277,7 +271,7 @@ Movement legs also carry `port_hours` and `transit_hours`. Every sea leg is char
 Every movement leg carries a well-to-wheel CO2e estimate, and the totals add them up. The figures are intensity-based: grams of CO2e per tonne of cargo per kilometre, from the GLEC Framework defaults that ISO 14083 builds on. Pass `cargoTonnes` to get absolute kilograms as well.
 
 ```csharp
-var movement = SeaRouter.CalculateMovement(legs, places, cargoTonnes: 20.0);
+var movement = SeaRouter.CalculateMovement(legs, cargoTonnes: 20.0);
 
 foreach (var leg in movement.Legs)
     Console.WriteLine($"{leg.Leg.Mode}: {leg.Co2eGramsPerTonneKm} g/t-km, {leg.Co2eKgPerTonne:N1} kg/t, {leg.Co2eKg:N0} kg");
