@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 0 1280 724" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="output-model-title output-model-desc">
+<svg viewBox="0 0 1280 764" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="output-model-title output-model-desc">
   <title id="output-model-title">SeaRoute.Net output model</title>
   <desc id="output-model-desc">Entity-relationship diagram of SeaRoute.Net output: a single route is a GeoJsonFeature holding a LineString geometry and SeaRouteProperties with length, units, duration, passages, optional origin and destination ports and, for movement legs, leg number, mode, kind, from, to and CO2e figures; a movement is a GeoJsonFeatureCollection of leg features with MovementProperties totals including CO2e.</desc>
   <defs>
@@ -86,8 +86,8 @@
   <text x="272" y="240" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">string</text>
 
   <!-- Entity: MovementProperties -->
-  <rect x="48" y="320" width="240" height="204" rx="6" fill="#f6f7f8"/>
-  <rect x="48" y="320" width="240" height="204" rx="6" fill="#ffffff" stroke="#181818" stroke-width="1"/>
+  <rect x="48" y="320" width="240" height="224" rx="6" fill="#f6f7f8"/>
+  <rect x="48" y="320" width="240" height="224" rx="6" fill="#ffffff" stroke="#181818" stroke-width="1"/>
   <rect x="48" y="320" width="240" height="40" rx="6" fill="rgba(24,24,24,0.04)" stroke="none"/>
   <rect x="48" y="352" width="240" height="8" fill="rgba(24,24,24,0.04)"/>
   <line x1="48" y1="360" x2="288" y2="360" stroke="rgba(24,24,24,0.22)" stroke-width="1"/>
@@ -107,6 +107,8 @@
   <text x="272" y="480" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">double?</text>
   <text x="64" y="500" fill="#181818" font-size="10" font-family="'Geist Mono', monospace">total_co2e_kg</text>
   <text x="272" y="500" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">double?</text>
+  <text x="64" y="520" fill="#181818" font-size="10" font-family="'Geist Mono', monospace">cargo_teu</text>
+  <text x="272" y="520" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">double?</text>
 
   <!-- Entity: GeoJsonFeature (focal, aggregate root) -->
   <rect x="352" y="120" width="224" height="144" rx="6" fill="#f6f7f8"/>
@@ -139,8 +141,8 @@
   <text x="896" y="200" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">[lon, lat][]</text>
 
   <!-- Entity: SeaRouteProperties -->
-  <rect x="672" y="280" width="280" height="344" rx="6" fill="#f6f7f8"/>
-  <rect x="672" y="280" width="280" height="344" rx="6" fill="#ffffff" stroke="#181818" stroke-width="1"/>
+  <rect x="672" y="280" width="280" height="384" rx="6" fill="#f6f7f8"/>
+  <rect x="672" y="280" width="280" height="384" rx="6" fill="#ffffff" stroke="#181818" stroke-width="1"/>
   <rect x="672" y="280" width="280" height="40" rx="6" fill="rgba(24,24,24,0.04)" stroke="none"/>
   <rect x="672" y="312" width="280" height="8" fill="rgba(24,24,24,0.04)"/>
   <line x1="672" y1="320" x2="952" y2="320" stroke="rgba(24,24,24,0.22)" stroke-width="1"/>
@@ -173,7 +175,11 @@
   <text x="688" y="580" fill="#181818" font-size="10" font-family="'Geist Mono', monospace">co2e_kg_per_tonne</text>
   <text x="936" y="580" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">double</text>
   <text x="688" y="600" fill="#181818" font-size="10" font-family="'Geist Mono', monospace">co2e_kg</text>
-  <text x="936" y="600" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">double? · with cargo_tonnes</text>
+  <text x="936" y="600" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">double? · with cargo</text>
+  <text x="688" y="620" fill="#181818" font-size="10" font-family="'Geist Mono', monospace">co2e_g_per_teu_km</text>
+  <text x="936" y="620" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">double? · TEU</text>
+  <text x="688" y="640" fill="#181818" font-size="10" font-family="'Geist Mono', monospace">co2e_basis</text>
+  <text x="936" y="640" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">tonnes · teu · teu_avg</text>
 
   <!-- Entity: Port (optional, present only when ports are resolved) -->
   <rect x="1032" y="280" width="200" height="200" rx="6" fill="#f6f7f8"/>
@@ -199,15 +205,15 @@
   <text x="1216" y="460" fill="#5b6472" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end">double?</text>
 
   <!-- Legend strip -->
-  <line x1="40" y1="660" x2="1240" y2="660" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
-  <text x="40" y="684" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
-  <rect x="128" y="672" width="16" height="12" rx="2" fill="rgba(10,52,161,0.04)" stroke="#0a34a1" stroke-width="1"/>
-  <text x="152" y="684" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">AGGREGATE ROOT</text>
-  <rect x="288" y="672" width="16" height="12" rx="2" fill="#ffffff" stroke="#181818" stroke-width="1"/>
-  <text x="312" y="684" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">ENTITY</text>
-  <rect x="408" y="672" width="16" height="12" rx="2" fill="rgba(24,24,24,0.02)" stroke="rgba(24,24,24,0.30)" stroke-width="1" stroke-dasharray="4,3"/>
-  <text x="432" y="684" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">OPTIONAL · NULL WHEN ABSENT</text>
-  <text x="656" y="684" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">→ REFERENCE</text>
-  <text x="784" y="684" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace"># IDENTIFIER</text>
-  <text x="912" y="684" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">1 · N · 0..1 CARDINALITY</text>
+  <line x1="40" y1="700" x2="1240" y2="700" stroke="rgba(24,24,24,0.10)" stroke-width="0.8"/>
+  <text x="40" y="724" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
+  <rect x="128" y="712" width="16" height="12" rx="2" fill="rgba(10,52,161,0.04)" stroke="#0a34a1" stroke-width="1"/>
+  <text x="152" y="724" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">AGGREGATE ROOT</text>
+  <rect x="288" y="712" width="16" height="12" rx="2" fill="#ffffff" stroke="#181818" stroke-width="1"/>
+  <text x="312" y="724" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">ENTITY</text>
+  <rect x="408" y="712" width="16" height="12" rx="2" fill="rgba(24,24,24,0.02)" stroke="rgba(24,24,24,0.30)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="432" y="724" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">OPTIONAL · NULL WHEN ABSENT</text>
+  <text x="656" y="724" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">→ REFERENCE</text>
+  <text x="784" y="724" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace"># IDENTIFIER</text>
+  <text x="912" y="724" fill="#5b6472" font-size="8" font-family="'Geist Mono', monospace">1 · N · 0..1 CARDINALITY</text>
 </svg>

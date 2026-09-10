@@ -224,7 +224,7 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
             legResults.Add(new LegResult(sequence, leg, from, to, feature));
         }
 
-        return new MovementResult(legResults, units.ToUnitString(), request.CargoTonnes);
+        return new MovementResult(legResults, units.ToUnitString(), request.CargoTonnes, request.CargoTeu);
     }
 
     /// <summary>
@@ -233,13 +233,33 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
     /// </summary>
     private static void ApplyEmissions(GeoJsonFeature feature, TransportMode mode, DistanceUnit units, MovementRequest request)
     {
+        var factors = request.Emissions;
         double lengthKm = feature.Properties.Length / (units.GetConversionFactorFromMeters() * 1000.0);
-        double gramsPerTonneKm = request.Emissions.GramsPerTonneKm(mode, lengthKm);
+        double gramsPerTonneKm = factors.GramsPerTonneKm(mode, lengthKm);
         double kgPerTonne = gramsPerTonneKm * lengthKm / 1000.0;
 
         feature.Properties.Co2eGramsPerTonneKm = gramsPerTonneKm;
         feature.Properties.Co2eKgPerTonne = kgPerTonne;
-        feature.Properties.Co2eKg = request.CargoTonnes.HasValue ? kgPerTonne * request.CargoTonnes.Value : null;
+
+        if (mode == TransportMode.Sea && request.CargoTeu.HasValue)
+        {
+            // Sea legs are charged per container when a TEU count is known: a light box still moves a whole slot.
+            feature.Properties.Co2eGramsPerTeuKm = factors.SeaGramsPerTeuKm;
+            feature.Properties.Co2eKg = factors.SeaGramsPerTeuKm * request.CargoTeu.Value * lengthKm / 1000.0;
+            feature.Properties.Co2eBasis = "teu";
+            return;
+        }
+
+        if (request.CargoTonnes.HasValue)
+        {
+            feature.Properties.Co2eKg = kgPerTonne * request.CargoTonnes.Value;
+            feature.Properties.Co2eBasis = "tonnes";
+        }
+        else if (request.CargoTeu.HasValue)
+        {
+            feature.Properties.Co2eKg = kgPerTonne * request.CargoTeu.Value * factors.AverageTonnesPerTeu;
+            feature.Properties.Co2eBasis = "teu_average_weight";
+        }
     }
 
     private GeoJsonFeature CalculateSeaLeg(int sequence, MovementLeg leg, ResolvedLocation from, ResolvedLocation to, SeaRouteOptions options)

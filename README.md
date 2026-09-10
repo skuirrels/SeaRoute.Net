@@ -261,11 +261,14 @@ foreach (var leg in movement.Legs)
 Console.WriteLine($"{movement.TotalCo2eKgPerTonne:N1} kg CO2e per tonne, {movement.TotalCo2eKg:N0} kg for {movement.CargoTonnes} t");
 ```
 
-Each leg feature gains `co2e_g_per_tonne_km`, `co2e_kg_per_tonne` and, with a cargo weight, `co2e_kg`; the collection gains `total_co2e_kg_per_tonne`, `cargo_tonnes` and `total_co2e_kg`.
+Each leg feature gains `co2e_g_per_tonne_km`, `co2e_kg_per_tonne` and, with a cargo weight or TEU count, `co2e_kg` and `co2e_basis`; the collection gains `total_co2e_kg_per_tonne`, `cargo_tonnes`, `cargo_teu` and `total_co2e_kg`.
+
+Pass `cargoTeu` as well for containerised sea freight. Sea legs are then charged per container at 76 g CO2e per TEU-km, because a light box still occupies a whole slot; a 40-foot container counts as 2 TEU and a 40-foot high cube as 2.25. Road, rail and air legs keep using the gross weight, and if only a TEU count is given they assume the GLEC average of 10 t per TEU. Weights are gross physical weight, not chargeable weight, as GLEC and ISO 14083 require.
 
 | Mode | Default, g CO2e per tonne-km, well-to-wheel | GLEC source |
 |---|---|---|
-| Sea | 7.6 | Table 46, industry-average dry container, 76 g per TEU-km at the GLEC average of 10 t per TEU |
+| Sea, per tonne | 7.6 | Table 46, industry-average dry container, 76 g per TEU-km at the GLEC average of 10 t per TEU |
+| Sea, per container | 76 per TEU-km | Table 46, industry-average dry container, used when a TEU count is given |
 | Road | 92 | Europe starting value for an HGV over 20 t gross vehicle weight |
 | Rail | 28 | Table 38, European diesel traction, average mixed load |
 | Air, under 1,000 km | 1,130 | Table 35, ICAO/IATA RP1678 basis, aircraft type unknown |

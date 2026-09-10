@@ -37,10 +37,17 @@ public sealed class MovementRequest
     public EmissionFactors Emissions { get; set; } = EmissionFactors.GlecDefaults;
 
     /// <summary>
-    /// Cargo weight in tonnes. When set, each leg and the totals also report absolute CO2e in kilograms;
-    /// otherwise only the per-tonne figures are reported.
+    /// Cargo weight in tonnes, gross physical weight. When set, each leg and the totals also report absolute
+    /// CO2e in kilograms; otherwise only the per-tonne figures are reported.
     /// </summary>
     public double? CargoTonnes { get; set; }
+
+    /// <summary>
+    /// Container count in TEU (a 40-foot box is 2, a 40-foot high cube 2.25). When set, sea legs use the
+    /// per-TEU rate instead of the per-tonne rate. Road, rail and air legs still use tonnes; if
+    /// <see cref="CargoTonnes"/> is not given they assume the GLEC average of 10 t per TEU.
+    /// </summary>
+    public double? CargoTeu { get; set; }
 
     /// <summary>
     /// Assumed average speed in kilometres per hour for each non-sea mode, used to estimate leg duration.

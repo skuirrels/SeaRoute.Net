@@ -425,6 +425,43 @@ public class MovementTests
         result.Legs[0].Co2eGramsPerTonneKm.Should().Be(50.0);
     }
 
+    [Fact]
+    public void Emissions_SeaLegsUsePerTeuRateWhenTeuIsGiven()
+    {
+        var result = SeaRouter.CalculateMovement(MelbourneMovement, ExtraPlaces, cargoTonnes: 12.0, cargoTeu: 2.0);
+
+        var sea = result.Legs[1];
+        sea.Co2eBasis.Should().Be("teu");
+        sea.Feature.Properties.Co2eGramsPerTeuKm.Should().Be(76.0);
+        sea.Co2eKg.Should().BeApproximately(76.0 * 2.0 * sea.Length / 1000.0, 1e-9);
+
+        var road = result.Legs[0];
+        road.Co2eBasis.Should().Be("tonnes", "non-sea legs use the stated weight");
+        road.Co2eKg.Should().BeApproximately(road.Co2eKgPerTonne * 12.0, 1e-9);
+
+        result.CargoTeu.Should().Be(2.0);
+        result.TotalCo2eKg.Should().BeApproximately(result.Legs.Sum(l => l.Co2eKg!.Value), 1e-9);
+
+        using var doc = JsonDocument.Parse(result.ToJson());
+        var seaProps = doc.RootElement.GetProperty("features")[1].GetProperty("properties");
+        seaProps.GetProperty("co2e_basis").GetString().Should().Be("teu");
+        seaProps.GetProperty("co2e_g_per_teu_km").GetDouble().Should().Be(76.0);
+        doc.RootElement.GetProperty("properties").GetProperty("cargo_teu").GetDouble().Should().Be(2.0);
+    }
+
+    [Fact]
+    public void Emissions_TeuOnly_InfersAverageWeightForNonSeaLegs()
+    {
+        var result = SeaRouter.CalculateMovement(MelbourneMovement, ExtraPlaces, cargoTeu: 1.0);
+
+        var road = result.Legs[0];
+        road.Co2eBasis.Should().Be("teu_average_weight");
+        road.Co2eKg.Should().BeApproximately(road.Co2eKgPerTonne * 10.0, 1e-9, "GLEC average of 10 t per TEU");
+        result.Legs[1].Co2eBasis.Should().Be("teu");
+        result.CargoTonnes.Should().BeNull();
+        result.TotalCo2eKg.Should().NotBeNull();
+    }
+
     private sealed class CountingResolver(params (string Code, Coordinate Coordinate)[] entries) : ILocationResolver
     {
         public int Calls { get; private set; }

@@ -70,8 +70,18 @@ public sealed class SeaRouteProperties
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? Co2eKgPerTonne { get; set; }
 
-    /// <summary>CO2e for the leg in kilograms, present when the movement states a cargo weight.</summary>
+    /// <summary>CO2e rate per container for sea legs, in grams per TEU-kilometre. Present when the movement states a TEU count.</summary>
+    [JsonPropertyName("co2e_g_per_teu_km")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Co2eGramsPerTeuKm { get; set; }
+
+    /// <summary>CO2e for the leg in kilograms, present when the movement states a cargo weight or TEU count.</summary>
     [JsonPropertyName("co2e_kg")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? Co2eKg { get; set; }
+
+    /// <summary>How <see cref="Co2eKg"/> was derived: "tonnes", "teu", or "teu_average_weight" when tonnes were inferred from TEU.</summary>
+    [JsonPropertyName("co2e_basis")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Co2eBasis { get; set; }
 }

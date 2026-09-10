@@ -59,6 +59,11 @@ public sealed class MovementProperties
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? CargoTonnes { get; set; }
 
+    /// <summary>Container count in TEU, when stated.</summary>
+    [JsonPropertyName("cargo_teu")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? CargoTeu { get; set; }
+
     /// <summary>Sum of leg CO2e in kilograms, when a cargo weight is stated.</summary>
     [JsonPropertyName("total_co2e_kg")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

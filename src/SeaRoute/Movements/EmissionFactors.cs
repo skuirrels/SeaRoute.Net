@@ -11,8 +11,17 @@ public sealed class EmissionFactors
     public static EmissionFactors GlecDefaults => new();
 
     /// <summary>
-    /// Deep-sea container shipping. GLEC Table 46, industry average dry container, 76 g CO2e per TEU-km WTW,
-    /// divided by the GLEC average of 10 tonnes per TEU.
+    /// Deep-sea container shipping per container. GLEC Table 46, industry average dry container,
+    /// 76 g CO2e per TEU-km WTW. Used for sea legs when the request states a TEU count.
+    /// </summary>
+    public double SeaGramsPerTeuKm { get; set; } = 76.0;
+
+    /// <summary>GLEC average cargo weight per TEU, 10 tonnes, used to convert between the two sea bases.</summary>
+    public double AverageTonnesPerTeu { get; set; } = 10.0;
+
+    /// <summary>
+    /// Deep-sea container shipping per tonne: <see cref="SeaGramsPerTeuKm"/> divided by <see cref="AverageTonnesPerTeu"/>.
+    /// Used for sea legs when only a cargo weight is known.
     /// </summary>
     public double SeaGramsPerTonneKm { get; set; } = 7.6;
 

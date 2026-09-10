@@ -34,8 +34,11 @@ public sealed class LegResult
     /// <summary>CO2e per tonne of cargo for this leg, in kilograms.</summary>
     public double Co2eKgPerTonne => Feature.Properties.Co2eKgPerTonne ?? 0.0;
 
-    /// <summary>CO2e for this leg in kilograms, when the movement states a cargo weight.</summary>
+    /// <summary>CO2e for this leg in kilograms, when the movement states a cargo weight or TEU count.</summary>
     public double? Co2eKg => Feature.Properties.Co2eKg;
+
+    /// <summary>Basis of <see cref="Co2eKg"/>: "tonnes", "teu" or "teu_average_weight".</summary>
+    public string? Co2eBasis => Feature.Properties.Co2eBasis;
 
     internal LegResult(int sequence, MovementLeg leg, ResolvedLocation from, ResolvedLocation to, GeoJsonFeature feature)
     {
@@ -73,24 +76,35 @@ public sealed class MovementResult
     /// <summary>Cargo weight in tonnes, when stated on the request.</summary>
     public double? CargoTonnes { get; }
 
-    /// <summary>Sum of leg CO2e in kilograms, when a cargo weight is stated.</summary>
+    /// <summary>Container count in TEU, when stated on the request.</summary>
+    public double? CargoTeu { get; }
+
+    /// <summary>Sum of leg CO2e in kilograms, when a cargo weight or TEU count is stated.</summary>
     public double? TotalCo2eKg { get; }
 
-    internal MovementResult(IReadOnlyList<LegResult> legs, string units, double? cargoTonnes)
+    internal MovementResult(IReadOnlyList<LegResult> legs, string units, double? cargoTonnes, double? cargoTeu)
     {
         Legs = legs;
         Units = units;
         CargoTonnes = cargoTonnes;
+        CargoTeu = cargoTeu;
 
         double totalLength = 0.0;
         double totalHours = 0.0;
         double totalCo2ePerTonne = 0.0;
+        double totalCo2eKg = 0.0;
+        bool anyAbsolute = false;
         var byMode = new Dictionary<TransportMode, double>(4);
         foreach (var leg in legs)
         {
             totalLength += leg.Length;
             totalHours += leg.DurationHours;
             totalCo2ePerTonne += leg.Co2eKgPerTonne;
+            if (leg.Co2eKg.HasValue)
+            {
+                totalCo2eKg += leg.Co2eKg.Value;
+                anyAbsolute = true;
+            }
             byMode.TryGetValue(leg.Leg.Mode, out double soFar);
             byMode[leg.Leg.Mode] = soFar + leg.Length;
         }
@@ -99,7 +113,7 @@ public sealed class MovementResult
         TotalDurationHours = totalHours;
         LengthByMode = byMode;
         TotalCo2eKgPerTonne = totalCo2ePerTonne;
-        TotalCo2eKg = cargoTonnes.HasValue ? totalCo2ePerTonne * cargoTonnes.Value : null;
+        TotalCo2eKg = anyAbsolute ? totalCo2eKg : null;
     }
 
     /// <summary>
@@ -122,6 +136,7 @@ public sealed class MovementResult
                 LegCount = Legs.Count,
                 TotalCo2eKgPerTonne = TotalCo2eKgPerTonne,
                 CargoTonnes = CargoTonnes,
+                CargoTeu = CargoTeu,
                 TotalCo2eKg = TotalCo2eKg
             }
         };
