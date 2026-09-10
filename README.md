@@ -327,7 +327,7 @@ dotnet test tests/SeaRoute.Tests
 dotnet run --project src/SeaRoute.Sample
 ```
 
-The sample prints nine worked examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes, GeoJSON output and a multi-leg movement. Add `--geojson` to print a full feature.
+The sample prints eleven worked examples covering coordinates, port codes, restrictions, terminal resolution, area weighting, A*, blocked routes, GeoJSON output, the Shanghai to London walkthrough and two multi-leg movements printed as tables. Add `--geojson` to print a full feature.
 
 To produce the NuGet package locally:
 

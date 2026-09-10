@@ -87,24 +87,78 @@ Print("7. Brussels to Tokyo with weighted preferred ports",
 string geoJson = route.ToJson(writeIndented: printGeoJson);
 Print("8. GeoJSON", printGeoJson ? Environment.NewLine + geoJson : $"{geoJson.Length:N0} characters, first 100: {geoJson[..100]}...");
 
-// 9. Multi-leg movement: one leg per line. Sea legs are routed; road, rail and air legs are straight lines.
-//    Codes that are not in the embedded port list (here Gatwick and a placeholder near Melbourne) need coordinates.
-const string legs = """
+// 9. The README diagram's worked example: Shanghai to London, following each step.
+var shanghai = new Coordinate(121.47, 31.23);
+var london = new Coordinate(-0.12, 51.51);
+var graph = SeaRouteEngine.Default.Graph;
+var shanghaiLane = graph.GetCoordinate(graph.FindNearestNode(shanghai));
+var londonLane = graph.GetCoordinate(graph.FindNearestNode(london));
+var lanePath = SeaRouter.Calculate(shanghai, london, returnPassages: true);
+var finished = SeaRouter.Calculate(shanghai, london, appendOrigDest: true);
+Print("9. Shanghai to London, step by step",
+    $"request        from 121.47°E 31.23°N to 0.12°W 51.51°N, km, 24 knots{Environment.NewLine}" +
+    $"   snap           Shanghai lane point {Haversine.Distance(shanghai, shanghaiLane):N1} km away, London lane point {Haversine.Distance(london, londonLane):N1} km away{Environment.NewLine}" +
+    $"   shortest path  {lanePath.Geometry.Coordinates.Count} lane points, {lanePath.Properties.Length:N0} km via {PassageNames(lanePath.Properties.TraversedPassages)}{Environment.NewLine}" +
+    $"   finished route {finished.Geometry.Coordinates.Count} points, {finished.Properties.Length:N0} km, {finished.Properties.DurationHours:N1} h{Environment.NewLine}" +
+    $"   result         GeoJSON Feature, {finished.ToJson().Length:N0} characters");
+
+// 10 and 11. Multi-leg movements, one leg per line. Sea legs are routed; road legs are straight lines.
+//    Codes that are not in the embedded port list need coordinates. CNSHG is overridden because the
+//    embedded list holds it as Sanshan, an inland Yangtze port, while carriers use it for the Port of Shanghai.
+var places = new Dictionary<string, Coordinate>(StringComparer.OrdinalIgnoreCase)
+{
+    ["GBLGW"] = new(-0.190278, 51.148056),   // London Gatwick
+    ["CNSHG"] = new(121.497113, 31.400091),  // Port of Shanghai, Wusongkou
+    ["CNSHZ"] = new(114.057868, 22.543099),  // Shenzhen
+    ["AUMRS"] = new(145.13, -37.92)          // placeholder near Melbourne
+};
+
+PrintMovement("10. Movement with one sea leg", """
+    Pickup GBLGW to Port GBFXT Road
+    Port GBFXT to Port CNSHG Sea
+    Delivery from port CNSHG to place CNSHZ Sea
+    """, places);
+
+PrintMovement("11. Movement with several sea legs", """
     Pickup GBLGW to Port GBFXT Road
     Port GBFXT to Port SGSIN Sea
     Port SGSIN to Port AUMEL Sea
     Delivery from port AUMEL to place AUMRS Sea
-    """;
-var places = new Dictionary<string, Coordinate>(StringComparer.OrdinalIgnoreCase)
+    """, places);
+
+static void PrintMovement(string title, string legs, IReadOnlyDictionary<string, Coordinate> places)
 {
-    ["GBLGW"] = new(-0.190278, 51.148056),
-    ["AUMRS"] = new(145.13, -37.92)
-};
-var movement = SeaRouter.CalculateMovement(legs, places);
-Print("9. Multi-leg movement Gatwick to Melbourne",
-    string.Join(Environment.NewLine + "   ", movement.Legs.Select(l =>
-        $"leg {l.Sequence} {l.Leg.Kind,-8} {l.Leg.Mode,-4} {l.From.Label} -> {l.To.Label}: {l.Length,9:N0} km, {l.DurationHours,6:N1} h"))
-    + Environment.NewLine + $"   total {movement.TotalLength:N0} km, {movement.TotalDurationHours:N1} h; GeoJSON FeatureCollection {movement.ToJson().Length:N0} chars");
+    var movement = SeaRouter.CalculateMovement(legs, places, new SeaRouteOptions { ReturnPassages = true });
+
+    Console.WriteLine();
+    Console.WriteLine(title);
+    foreach (var line in legs.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        Console.WriteLine("   " + line);
+    Console.WriteLine();
+    Console.WriteLine($"   {"Leg",-4}{"Kind",-10}{"Mode",-6}{"From",-7}{"To",-7}{"Distance",12}{"Time",9}  Via");
+    foreach (var leg in movement.Legs)
+    {
+        Console.WriteLine(
+            $"   {leg.Sequence,-4}{leg.Leg.Kind,-10}{leg.Leg.Mode,-6}{leg.From.Label,-7}{leg.To.Label,-7}" +
+            $"{leg.Length,9:N0} km{leg.DurationHours,7:N1} h  {PassageNames(leg.Feature.Properties.TraversedPassages)}");
+    }
+    Console.WriteLine($"   {"Total",-34}{movement.TotalLength,9:N0} km{movement.TotalDurationHours,7:N1} h");
+}
+
+static string PassageNames(IReadOnlyList<string>? tags)
+{
+    if (tags == null || tags.Count == 0)
+        return "";
+    return string.Join(", ", tags.Select(t => t switch
+    {
+        "babalmandab" => "Bab-el-Mandeb",
+        "south_africa" => "Cape of Good Hope",
+        "ormuz" => "Hormuz",
+        "chili" => "Magellan Strait",
+        "northwest" => "Northwest Passage",
+        _ => char.ToUpperInvariant(t[0]) + t[1..]
+    }));
+}
 
 static void Print(string title, string detail)
 {
