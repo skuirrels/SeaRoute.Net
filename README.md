@@ -308,7 +308,7 @@ dotnet pack src/SeaRoute/SeaRoute.csproj -c Release -o ./artifacts
 
 ## Data
 
-- **Marnet**, the Eurostat global maritime routing network: 9,708 nodes, 31,940 directed edges, with passage tags on canals and straits.
+- **Marnet**, Eurostat's global network of shipping lanes, published by its GISCO geographic unit for measuring sea distances between ports: 9,708 nodes that are points along a lane, 31,940 directed edges that carry the distance in kilometres, with passage tags on canals and straits.
 - **World ports**: 3,955 ports with UN/LOCODE, name, country, terminal flag and permitted destination countries.
 
 Both are embedded as gzip-compressed JSON, about 360 KB in total, and loaded lazily on first use.
