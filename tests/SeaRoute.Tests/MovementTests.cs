@@ -535,7 +535,7 @@ public class MovementTests
     }
 
     [Fact]
-    public void Time_SeaLegsAddPortDwellAtEachEnd_AndDefaultSpeedIsSixteenKnots()
+    public void Time_DefaultModelIncludesExplicitSeaAndConnectionAllowances()
     {
         var result = SeaRouter.CalculateMovement(MelbourneMovement);
 
@@ -545,28 +545,81 @@ public class MovementTests
 
         var sea = result.Legs[1];
         sea.PortHours.Should().Be(48.0, "24 h at each end of a sea leg");
-        sea.TransitHours.Should().BeApproximately(sea.DurationHours + 48.0, 1e-9);
         sea.DurationHours.Should().BeApproximately(sea.Length / (16.0 * 1.852), 1e-6, "steaming at 16 knots");
+        sea.OperationalAllowanceHours.Should().BeApproximately(sea.DurationHours * 0.20, 1e-9);
+        sea.ConnectionHours.Should().Be(0.0, "the first sea leg has no preceding service to connect from");
+        sea.TransitHours.Should().BeApproximately(sea.DurationHours * 1.20 + 48.0, 1e-9);
+
+        var connectingSea = result.Legs[2];
+        connectingSea.ConnectionHours.Should().Be(48.0, "consecutive sea legs are modelled as a transshipment");
 
         result.TotalPortHours.Should().Be(2 * 48.0);
-        result.TotalTransitHours.Should().BeApproximately(result.TotalDurationHours + result.TotalPortHours, 1e-9);
-        // UK to Melbourne via Singapore should land inside the 38 to 50 day range quoted by forwarders.
-        (result.TotalTransitHours / 24.0).Should().BeInRange(30.0, 50.0);
+        result.TotalOperationalAllowanceHours.Should().BeApproximately(
+            result.Legs.Where(leg => leg.Leg.Mode == TransportMode.Sea).Sum(leg => leg.DurationHours) * 0.20,
+            1e-9);
+        result.TotalConnectionHours.Should().Be(48.0);
+        result.TotalTransitHours.Should().BeApproximately(
+            result.TotalDurationHours
+            + result.TotalOperationalAllowanceHours
+            + result.TotalPortHours
+            + result.TotalConnectionHours,
+            1e-9);
+        (result.TotalTransitHours / 24.0).Should().BeInRange(44.0, 46.0, "the default is a modelled minimum, not a carrier schedule");
 
         using var doc = JsonDocument.Parse(result.ToJson());
-        doc.RootElement.GetProperty("features")[1].GetProperty("properties").GetProperty("port_hours").GetDouble().Should().Be(48.0);
-        doc.RootElement.GetProperty("properties").GetProperty("total_transit_hours").GetDouble().Should().BeApproximately(result.TotalTransitHours, 1e-9);
+        var seaProperties = doc.RootElement.GetProperty("features")[1].GetProperty("properties");
+        seaProperties.GetProperty("port_hours").GetDouble().Should().Be(48.0);
+        seaProperties.GetProperty("operational_allowance_hours").GetDouble().Should().BeApproximately(sea.OperationalAllowanceHours, 1e-9);
+        seaProperties.GetProperty("connection_hours").GetDouble().Should().Be(0.0);
+        var totals = doc.RootElement.GetProperty("properties");
+        totals.GetProperty("total_operational_allowance_hours").GetDouble().Should().BeApproximately(result.TotalOperationalAllowanceHours, 1e-9);
+        totals.GetProperty("total_connection_hours").GetDouble().Should().Be(48.0);
+        totals.GetProperty("total_transit_hours").GetDouble().Should().BeApproximately(result.TotalTransitHours, 1e-9);
     }
 
     [Fact]
-    public void Time_PortDwellCanBeSwitchedOff()
+    public void Time_AllAllowancesCanBeSwitchedOffForPureTravelTime()
     {
-        var request = new MovementRequest { Legs = MovementParser.Parse("Port GBFXT to Port SGSIN Sea"), PortDwellHours = 0.0 };
+        var request = new MovementRequest
+        {
+            Legs = MovementParser.Parse("Port GBFXT to Port SGSIN Sea"),
+            PortDwellHours = 0.0,
+            SeaOperationalAllowance = 0.0,
+            TransshipmentConnectionHours = 0.0
+        };
 
         var result = SeaRouteEngine.Default.CalculateMovement(request);
 
         result.Legs[0].PortHours.Should().Be(0.0);
         result.TotalTransitHours.Should().Be(result.TotalDurationHours);
+    }
+
+    [Fact]
+    public void Time_InvalidOperationalAllowanceIsRejected()
+    {
+        var request = new MovementRequest
+        {
+            Legs = MovementParser.Parse("Port GBFXT to Port SGSIN Sea"),
+            SeaOperationalAllowance = double.NaN
+        };
+
+        var act = () => SeaRouteEngine.Default.CalculateMovement(request);
+
+        act.Should().Throw<ArgumentOutOfRangeException>().WithMessage("*operational allowance*");
+    }
+
+    [Fact]
+    public void Time_InvalidConnectionTimeIsRejected()
+    {
+        var request = new MovementRequest
+        {
+            Legs = MovementParser.Parse("Port GBFXT to Port SGSIN Sea"),
+            TransshipmentConnectionHours = -1.0
+        };
+
+        var act = () => SeaRouteEngine.Default.CalculateMovement(request);
+
+        act.Should().Throw<ArgumentOutOfRangeException>().WithMessage("*connection time*");
     }
 
     [Fact]

@@ -50,7 +50,15 @@ public sealed class MovementProperties
     [JsonPropertyName("total_port_hours")]
     public double TotalPortHours { get; set; }
 
-    /// <summary>Sum of leg transit hours: travelling plus port time.</summary>
+    /// <summary>Sum of sea-service operational allowances.</summary>
+    [JsonPropertyName("total_operational_allowance_hours")]
+    public double TotalOperationalAllowanceHours { get; set; }
+
+    /// <summary>Sum of transshipment connection hours.</summary>
+    [JsonPropertyName("total_connection_hours")]
+    public double TotalConnectionHours { get; set; }
+
+    /// <summary>Modelled minimum hours across all legs.</summary>
     [JsonPropertyName("total_transit_hours")]
     public double TotalTransitHours { get; set; }
 

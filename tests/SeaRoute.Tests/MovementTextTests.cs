@@ -30,6 +30,11 @@ public class MovementTextTests
         text.Should().Contain("Delivery  Road  AUMEL  AUMRS");
         text.Should().Contain("Gibraltar, Suez, Bab-el-Mandeb, Malacca");
         text.Should().Contain("Sunda");
+        text.Should().Contain("Modelled minimum =");
+        text.Should().Contain("sea operations");
+        text.Should().Contain("port handling");
+        text.Should().Contain("connections");
+        text.Should().Contain("planning lower bound");
         text.Should().Contain(result.TotalLength.ToString("N0", CultureInfo.InvariantCulture));
         text.Should().Contain(result.TotalTransitHours.ToString("N1", CultureInfo.InvariantCulture));
         text.Should().Contain(result.TotalCo2eKg!.Value.ToString("N0", CultureInfo.InvariantCulture));
@@ -45,7 +50,7 @@ public class MovementTextTests
         string text = result.ToText(includeExplanations: false);
 
         text.Should().Contain("GBFXT  SGSIN");
-        text.Should().Contain("Transit        =");
+        text.Should().Contain("Modelled minimum =");
         text.Should().NotContain("grams of CO2e emitted");
     }
 }

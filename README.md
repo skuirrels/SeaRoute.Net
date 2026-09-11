@@ -22,7 +22,7 @@ Console.WriteLine($"{route.Properties.Length:N0} {route.Properties.Units}, {rout
 
 ### Complete multi-leg movement
 
-Route pickup, two sea legs and final delivery using UN/LOCODEs throughout. The result contains every leg, totals, timings, emissions, choke points and a GeoJSON `FeatureCollection`.
+Route pickup, two sea legs and final delivery using UN/LOCODEs throughout. The result contains every leg, totals, a modelled minimum time, emissions, choke points and a GeoJSON `FeatureCollection`.
 
 ```csharp
 using SeaRoute;
@@ -45,17 +45,18 @@ Console.WriteLine(movement.ToText());
 var geoJson = movement.ToJson(writeIndented: true);
 ```
 
-`ToText()` produces the full end-to-end report directly from the calculated movement; `ToJson()` returns the same movement as GeoJSON for mapping or downstream processing.
+`ToText()` produces the full end-to-end report directly from the calculated movement; `ToJson()` returns the same movement as GeoJSON for mapping or downstream processing. The time is labelled **modelled minimum** because it is built from documented assumptions rather than a live carrier schedule.
 
 ```text
-Leg Kind      Mode  From   To         Distance  Transit       CO2e rate  CO2e per tonne  CO2e total   Basis  Choke points
-                                                     hours      g per t-km  kg per t cargo          kg
+Leg Kind      Mode  From   To         Distance  Modelled      CO2e rate  CO2e per tonne  CO2e total   Basis  Choke points
+                                                   minimum h     g per t-km  kg per t cargo          kg
 1   Pickup    Road  GBLGW  GBFXT        139 km      2.3            92.0            12.8         154  tonnes
-2   Main      Sea   GBFXT  SGSIN     15,402 km    567.8             7.6           117.1       2,341     teu  Gibraltar, Suez, Bab-el-Mandeb, Malacca
-3   Main      Sea   SGSIN  AUMEL      7,300 km    294.4             7.6            55.5       1,110     teu  Sunda
+2   Main      Sea   GBFXT  SGSIN     15,402 km    671.7             7.6           117.1       2,341     teu  Gibraltar, Suez, Bab-el-Mandeb, Malacca
+3   Main      Sea   SGSIN  AUMEL      7,300 km    391.6             7.6            55.5       1,110     teu  Sunda
 4   Delivery  Road  AUMEL  AUMRS        829 km     13.8            92.0            76.3         915  tonnes
-Total                                23,670 km    878.3                           261.6       4,520          for 12 t of cargo in 2 TEU
-Transit        = 782.3 h travelling + 96 h in port = 878.3 h (36.6 days)
+Total                                23,670 km  1,079.5                           261.6       4,520          for 12 t of cargo in 2 TEU
+Modelled minimum = 782.3 h travel + 153.2 h sea operations + 96 h port handling + 48 h connections = 1,079.5 h (45.0 days)
+Timing         = planning lower bound from configured assumptions; excludes carrier schedules, customs and disruption
 CO2e rate      = grams of CO2e emitted moving 1 tonne 1 km (configured factor for the mode)
 CO2e per tonne = rate × leg distance: kg of CO2e for each tonne of cargo carried over the leg
 CO2e total     = kg of CO2e for this shipment: cargo weight on non-sea legs, 76 g per TEU-km on sea legs
@@ -296,7 +297,7 @@ string geoJson = movement.ToJson();   // FeatureCollection, one feature per leg
 
 The string overload remains available as an import convenience when a source system already supplies human-written leg lines. Code-first callers should use `MovementPlan`; the strings above are only the UN/LOCODE identifiers themselves.
 
-Each leg feature carries `leg`, `mode`, `kind`, `from` and `to` in its properties, and the collection carries `total_length`, `units`, `total_duration_hours` and `legs`. Every leg starts and ends at its resolved locations, so consecutive legs join end to end; `AppendOriginDestination` is always on for movement legs. A sea leg with no route under the given restrictions throws an `InvalidOperationException` naming the leg rather than contributing zero. Build a `MovementRequest` directly when you need custom non-sea speeds, port dwell or emission factors.
+Each leg feature carries `leg`, `mode`, `kind`, `from` and `to` in its properties, plus the time components described below. The collection carries the corresponding totals. Every leg starts and ends at its resolved locations, so consecutive legs join end to end; `AppendOriginDestination` is always on for movement legs. A sea leg with no route under the given restrictions throws an `InvalidOperationException` naming the leg rather than contributing zero. Build a `MovementRequest` directly when you need custom speeds, timing assumptions or emission factors.
 
 Codes resolve in this order:
 
@@ -321,7 +322,28 @@ Each resolved location reports its `Source`. The embedded UN/LOCODE data has no 
 
 The sea default is a slow-steaming service speed rather than a design speed: Clarksons measured the container fleet averaging 13.7 knots in 2023 ([Splash247](https://splash247.com/containerships-moving-at-all-time-low-speeds/)), and Asia to Europe services run at 16 to 20 knots ([Wikipedia, slow steaming](https://en.wikipedia.org/wiki/Slow_steaming)). Earlier versions used 24 knots and under-estimated transit by about half.
 
-Movement legs also carry `port_hours` and `transit_hours`. Every sea leg is charged `MovementRequest.PortDwellHours` at each end, 24 hours by default, covering loading, discharge and transhipment, so a transhipment between two sea legs costs 48 hours. `transit_hours` is travelling plus port time, and the collection carries `total_port_hours` and `total_transit_hours`. Set `PortDwellHours` to 0 for pure steaming time. Customs, waiting for a sailing and schedule effects are still not included, so treat transit as a lower bound: UK to Melbourne via Singapore comes out at about 36 days against the 38 to 50 quoted by forwarders ([Shipa Freight](https://www.shipafreight.com/tradelane/uk-to-australia/)), and Felixstowe to Singapore at about 24 days against a scheduled 29 with intermediate port calls ([Fluent Cargo](https://www.fluentcargo.com/routes/singapore/united-kingdom)).
+For a movement, `transit_hours` is deliberately a **modelled minimum**, calculated as:
+
+```text
+travel time
++ 20% of sea travel time for normal service operations
++ 24 hours of cargo handling at each end of every sea leg
++ 48 hours for each connection between consecutive sea legs
+```
+
+The service allowance represents intermediate calls, restricted-water slowdowns, pilotage and berth approaches that a shortest-path line cannot show. The connection allowance represents a normal transshipment hand-off; set it to zero for a through service. These are transparent, configurable defaults—not observations of a specific carrier or sailing.
+
+The worked UK–Singapore–Melbourne movement is therefore 782.3 hours of physical travel + 153.2 hours of sea operations + 96 hours of port handling + 48 hours for the Singapore connection = **45.0 days modelled minimum**, rather than the former 36.6-day physical lower bound.
+
+For the reverse Australia–UK direction, a fast indicative combination is Melbourne–Singapore at 13 days ([Maersk](https://www.maersk.com/news/articles/2026/07/06/melbourne-star-seasonal-inducement-of-southern-star-oceania-network)) plus Singapore–Felixstowe at 30 days ([Yang Ming](https://www.yangming.com/en/service/service_overview/route_map?service=FE3)): 43 days before connection waiting or road delivery. A freight-forwarder benchmark gives 42–52 days for Australia–UK and 50 days for Melbourne–Felixstowe FCL ([Shipa Freight](https://www.shipafreight.com/tradelane/australia-to-uk/)). Current complete services can be materially slower; CMA CGM's weekly NEWMO rotation places London Gateway to Melbourne at 62 days and Melbourne back to London at 63 days ([CMA CGM](https://www.cma-cgm.com/ebusiness/schedules/line-services/flyer/NEWMO?route=1)).
+
+| `MovementRequest` timing option | Default | Meaning |
+|---|---:|---|
+| `SeaOperationalAllowance` | `0.20` | Fraction of sea travel time added for normal service operations. |
+| `PortDwellHours` | `24` | Cargo-handling time at each end of each sea leg. |
+| `TransshipmentConnectionHours` | `48` | Connection time before a sea leg that follows another sea leg. |
+
+Set all three to zero for pure distance-divided-by-speed time. Even with the defaults, customs clearance, cargo cut-offs, booking availability, blank sailings, disruption and the wait for a particular departure are not modelled. Carrier-published schedules or recent AIS observations are required for a scheduled or actual transit estimate; Hapag-Lloyd explains the distinction between transit, dwell and connection effects in its [shipping timings guide](https://www.hapag-lloyd.com/en/online-business/digital-insights-dock/insights/2025/01/from-berth-to-delivery-important-timings-in-shipping-that-might-.html).
 
 ### Emissions
 
@@ -364,7 +386,7 @@ Everything here is deliberate and documented, but each is a simplification you s
 - **Single routes with no path** return null geometry and zero length rather than throwing; movement legs throw.
 - **Untagged lane links.** Three internal tags in the lane data, `segment`, `segment2` and `pacific_ocean`, stitch the antimeridian and are never reported or restrictable.
 - **Straight legs.** Road, rail and air legs are great-circle lines, not routed on any network.
-- **Time and emissions are estimates** from the defaults in the Time and Emissions sections, with no customs, waiting or schedule effects.
+- **Time and emissions are estimates.** Movement time is labelled modelled minimum and exposes every allowance, but it still has no carrier schedule, customs, cargo cut-off, booking availability or disruption data.
 - **Per-thread search buffers** hold about 300 KB for the lifetime of each thread that routes.
 
 ## Options reference

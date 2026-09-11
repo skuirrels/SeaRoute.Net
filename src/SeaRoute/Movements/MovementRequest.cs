@@ -50,10 +50,23 @@ public sealed class MovementRequest
     public double? CargoTeu { get; set; }
 
     /// <summary>
-    /// Hours spent in port at each end of every sea leg, covering loading, discharge and transhipment dwell.
-    /// Default 24, so a transhipment between two sea legs costs 48 hours. Set to 0 for pure steaming time.
+    /// Hours spent handling cargo at each end of every sea leg. The default is 24 hours for loading or
+    /// discharge. A consecutive sea leg also receives <see cref="TransshipmentConnectionHours"/>.
     /// </summary>
     public double PortDwellHours { get; set; } = 24.0;
+
+    /// <summary>
+    /// Fraction of sea travelling time added for normal service operations that shortest-path geometry cannot
+    /// represent, such as intermediate calls, restricted-water slowdowns, pilotage and berth approaches.
+    /// The default is 0.20 (20%). This is an explicit modelling allowance, not carrier schedule data.
+    /// </summary>
+    public double SeaOperationalAllowance { get; set; } = 0.20;
+
+    /// <summary>
+    /// Connection time added before each sea leg that immediately follows another sea leg. The default is
+    /// 48 hours. Set to zero when consecutive sea legs represent a through service rather than a transshipment.
+    /// </summary>
+    public double TransshipmentConnectionHours { get; set; } = 48.0;
 
     /// <summary>
     /// Assumed average speed in kilometres per hour for each non-sea mode, used to estimate leg duration.

@@ -9,8 +9,8 @@ internal static class MovementTextFormatter
     internal static string Format(MovementResult movement, bool includeExplanations)
     {
         var output = new StringBuilder();
-        output.AppendLine("Leg Kind      Mode  From   To         Distance  Transit       CO2e rate  CO2e per tonne  CO2e total   Basis  Choke points");
-        output.AppendLine("                                                     hours      g per t-km  kg per t cargo          kg");
+        output.AppendLine("Leg Kind      Mode  From   To         Distance  Modelled      CO2e rate  CO2e per tonne  CO2e total   Basis  Choke points");
+        output.AppendLine("                                                   minimum h     g per t-km  kg per t cargo          kg");
 
         foreach (var leg in movement.Legs)
         {
@@ -21,10 +21,11 @@ internal static class MovementTextFormatter
         AppendInvariant(output,
             $"{"Total",-34}{movement.TotalLength,9:N0} {movement.Units}{movement.TotalTransitHours,9:N1}{"",16}{movement.TotalCo2eKgPerTonne,16:N1}{FormatNullable(movement.TotalCo2eKg),12}{"",8}  {FormatCargo(movement)}");
         AppendInvariant(output,
-            $"Transit        = {movement.TotalDurationHours:N1} h travelling + {movement.TotalPortHours:N0} h in port = {movement.TotalTransitHours:N1} h ({movement.TotalTransitHours / 24.0:N1} days)");
+            $"Modelled minimum = {movement.TotalDurationHours:N1} h travel + {movement.TotalOperationalAllowanceHours:N1} h sea operations + {movement.TotalPortHours:N0} h port handling + {movement.TotalConnectionHours:N0} h connections = {movement.TotalTransitHours:N1} h ({movement.TotalTransitHours / 24.0:N1} days)");
 
         if (includeExplanations)
         {
+            output.AppendLine("Timing         = planning lower bound from configured assumptions; excludes carrier schedules, customs and disruption");
             output.AppendLine("CO2e rate      = grams of CO2e emitted moving 1 tonne 1 km (configured factor for the mode)");
             output.AppendLine("CO2e per tonne = rate × leg distance: kg of CO2e for each tonne of cargo carried over the leg");
             output.AppendLine(FormatTotalExplanation(movement));

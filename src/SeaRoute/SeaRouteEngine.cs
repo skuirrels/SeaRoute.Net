@@ -239,8 +239,17 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
             feature.Properties.Kind = leg.Kind.ToWireString();
             feature.Properties.From = from.Label;
             feature.Properties.To = to.Label;
-            feature.Properties.PortHours = leg.Mode == TransportMode.Sea ? 2.0 * request.PortDwellHours : 0.0;
-            feature.Properties.TransitHours = feature.Properties.DurationHours + feature.Properties.PortHours;
+            bool isSea = leg.Mode == TransportMode.Sea;
+            bool followsSeaLeg = isSea && sequence > 1 && request.Legs[sequence - 2].Mode == TransportMode.Sea;
+            feature.Properties.PortHours = isSea ? 2.0 * request.PortDwellHours : 0.0;
+            feature.Properties.OperationalAllowanceHours = isSea
+                ? feature.Properties.DurationHours * request.SeaOperationalAllowance
+                : 0.0;
+            feature.Properties.ConnectionHours = followsSeaLeg ? request.TransshipmentConnectionHours : 0.0;
+            feature.Properties.TransitHours = feature.Properties.DurationHours
+                + feature.Properties.PortHours
+                + feature.Properties.OperationalAllowanceHours
+                + feature.Properties.ConnectionHours;
             ApplyEmissions(feature, leg.Mode, units, request);
 
             legResults.Add(new LegResult(sequence, leg, from, to, feature));
@@ -466,6 +475,10 @@ public sealed class SeaRouteEngine : ISeaRouteEngine
         ValidatePositiveOptional(request.CargoTeu, nameof(request.CargoTeu));
         if (!double.IsFinite(request.PortDwellHours) || request.PortDwellHours < 0)
             throw new ArgumentOutOfRangeException(nameof(request.PortDwellHours), request.PortDwellHours, "Port dwell must be finite and non-negative.");
+        if (!double.IsFinite(request.SeaOperationalAllowance) || request.SeaOperationalAllowance < 0)
+            throw new ArgumentOutOfRangeException(nameof(request.SeaOperationalAllowance), request.SeaOperationalAllowance, "Sea operational allowance must be finite and non-negative.");
+        if (!double.IsFinite(request.TransshipmentConnectionHours) || request.TransshipmentConnectionHours < 0)
+            throw new ArgumentOutOfRangeException(nameof(request.TransshipmentConnectionHours), request.TransshipmentConnectionHours, "Transshipment connection time must be finite and non-negative.");
         if (request.SpeedsKmh.ContainsKey(TransportMode.Sea))
             throw new ArgumentException("Sea speed is taken from SeaOptions.SpeedKnots; remove the Sea entry from SpeedsKmh.", nameof(request));
 

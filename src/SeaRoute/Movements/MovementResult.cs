@@ -31,7 +31,13 @@ public sealed class LegResult
     /// <summary>Port time in hours: dwell at each end of a sea leg, zero for road, rail and air.</summary>
     public double PortHours => Feature.Properties.PortHours ?? 0.0;
 
-    /// <summary>Transit time in hours: travelling plus port time.</summary>
+    /// <summary>Normal sea-service operational allowance in hours, zero for non-sea legs.</summary>
+    public double OperationalAllowanceHours => Feature.Properties.OperationalAllowanceHours ?? 0.0;
+
+    /// <summary>Transshipment connection time before this leg in hours.</summary>
+    public double ConnectionHours => Feature.Properties.ConnectionHours ?? 0.0;
+
+    /// <summary>Modelled minimum time in hours, including all configured allowances.</summary>
     public double TransitHours => Feature.Properties.TransitHours ?? DurationHours;
 
     /// <summary>Well-to-wheel CO2e intensity applied, in grams per tonne-kilometre.</summary>
@@ -76,7 +82,13 @@ public sealed class MovementResult
     /// <summary>Sum of port hours across sea legs.</summary>
     public double TotalPortHours { get; }
 
-    /// <summary>Sum of leg transit hours: travelling plus port time.</summary>
+    /// <summary>Sum of sea-service operational allowances.</summary>
+    public double TotalOperationalAllowanceHours { get; }
+
+    /// <summary>Sum of transshipment connection hours.</summary>
+    public double TotalConnectionHours { get; }
+
+    /// <summary>Modelled minimum hours across all legs.</summary>
     public double TotalTransitHours { get; }
 
     /// <summary>Length per transport mode.</summary>
@@ -104,6 +116,9 @@ public sealed class MovementResult
         double totalLength = 0.0;
         double totalHours = 0.0;
         double totalPortHours = 0.0;
+        double totalOperationalAllowanceHours = 0.0;
+        double totalConnectionHours = 0.0;
+        double totalTransitHours = 0.0;
         double totalCo2ePerTonne = 0.0;
         double totalCo2eKg = 0.0;
         bool anyAbsolute = false;
@@ -113,6 +128,9 @@ public sealed class MovementResult
             totalLength += leg.Length;
             totalHours += leg.DurationHours;
             totalPortHours += leg.PortHours;
+            totalOperationalAllowanceHours += leg.OperationalAllowanceHours;
+            totalConnectionHours += leg.ConnectionHours;
+            totalTransitHours += leg.TransitHours;
             totalCo2ePerTonne += leg.Co2eKgPerTonne;
             if (leg.Co2eKg.HasValue)
             {
@@ -126,7 +144,9 @@ public sealed class MovementResult
         TotalLength = totalLength;
         TotalDurationHours = totalHours;
         TotalPortHours = totalPortHours;
-        TotalTransitHours = totalHours + totalPortHours;
+        TotalOperationalAllowanceHours = totalOperationalAllowanceHours;
+        TotalConnectionHours = totalConnectionHours;
+        TotalTransitHours = totalTransitHours;
         LengthByMode = byMode;
         TotalCo2eKgPerTonne = totalCo2ePerTonne;
         TotalCo2eKg = anyAbsolute ? totalCo2eKg : null;
@@ -150,6 +170,8 @@ public sealed class MovementResult
                 Units = Units,
                 TotalDurationHours = TotalDurationHours,
                 TotalPortHours = TotalPortHours,
+                TotalOperationalAllowanceHours = TotalOperationalAllowanceHours,
+                TotalConnectionHours = TotalConnectionHours,
                 TotalTransitHours = TotalTransitHours,
                 LegCount = Legs.Count,
                 TotalCo2eKgPerTonne = TotalCo2eKgPerTonne,

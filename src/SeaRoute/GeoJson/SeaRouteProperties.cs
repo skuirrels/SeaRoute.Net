@@ -65,7 +65,20 @@ public sealed class SeaRouteProperties
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? PortHours { get; set; }
 
-    /// <summary>Transit time for the leg in hours: <see cref="DurationHours"/> travelling plus <see cref="PortHours"/>. Movement legs only.</summary>
+    /// <summary>Sea-service operational allowance in hours. Zero for non-sea movement legs.</summary>
+    [JsonPropertyName("operational_allowance_hours")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? OperationalAllowanceHours { get; set; }
+
+    /// <summary>Transshipment connection time before the leg in hours. Movement legs only.</summary>
+    [JsonPropertyName("connection_hours")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? ConnectionHours { get; set; }
+
+    /// <summary>
+    /// Modelled minimum time for the leg in hours: travel, operational allowance, port handling and connection
+    /// time. This is not a carrier-scheduled or guaranteed transit time. Movement legs only.
+    /// </summary>
     [JsonPropertyName("transit_hours")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? TransitHours { get; set; }
