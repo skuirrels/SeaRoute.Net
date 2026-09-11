@@ -38,14 +38,14 @@ var plan = MovementPlan
 var movement = SeaRouter.CalculateMovement(
     plan,
     seaOptions: new SeaRouteOptions { ReturnPassages = true },
-    cargoTonnes: 12.0,
-    cargoTeu: 2.0); // One 40-foot container
+    cargoTonnes: 12.0, // Optional: actual weight used for inland emissions
+    cargoTeu: 2.0);    // Optional: one 40-foot container, used for sea emissions
 
 Console.WriteLine(movement.ToText());
 var geoJson = movement.ToJson(writeIndented: true);
 ```
 
-`ToText()` produces the full end-to-end report directly from the calculated movement; `ToJson()` returns the same movement as GeoJSON for mapping or downstream processing. The time is labelled **modelled minimum** because it is built from documented assumptions rather than a live carrier schedule.
+Both cargo measurements are shown together only to demonstrate the two emissions bases; real callers can provide either measurement, both when reliably known, or neither. When both are supplied, sea legs use TEU in preference to tonnes, while road, rail and air legs use the stated tonnes. `ToText()` produces the full end-to-end report directly from the calculated movement; `ToJson()` returns the same movement as GeoJSON for mapping or downstream processing. The time is labelled **modelled minimum** because it is built from documented assumptions rather than a live carrier schedule.
 
 ```text
 Leg Kind      Mode  From   To         Distance  Modelled      CO2e rate  CO2e per tonne  CO2e total   Basis  Choke points
