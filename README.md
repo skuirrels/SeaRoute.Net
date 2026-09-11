@@ -48,13 +48,13 @@ var geoJson = movement.ToJson(writeIndented: true);
 Both cargo measurements are shown together only to demonstrate the two emissions bases; real callers can provide either measurement, both when reliably known, or neither. When both are supplied, sea legs use TEU in preference to tonnes, while road, rail and air legs use the stated tonnes. `ToText()` produces the full end-to-end report directly from the calculated movement; `ToJson()` returns the same movement as GeoJSON for mapping or downstream processing. The time is labelled **modelled minimum** because it is built from documented assumptions rather than a live carrier schedule.
 
 ```text
-Leg Kind      Mode  From   To         Distance  Modelled      CO2e rate  CO2e per tonne  CO2e total   Basis  Choke points
-                                                   minimum h     g per t-km  kg per t cargo          kg
-1   Pickup    Road  GBLGW  GBFXT        139 km      2.3            92.0            12.8         154  tonnes
-2   Main      Sea   GBFXT  SGSIN     15,402 km    671.7             7.6           117.1       2,341     teu  Gibraltar, Suez, Bab-el-Mandeb, Malacca
-3   Main      Sea   SGSIN  AUMEL      7,300 km    391.6             7.6            55.5       1,110     teu  Sunda
-4   Delivery  Road  AUMEL  AUMRS        829 km     13.8            92.0            76.3         915  tonnes
-Total                                23,670 km  1,079.5                           261.6       4,520          for 12 t of cargo in 2 TEU
+Leg Kind      Mode  From   To      Distance      Modelled transit time       CO2e rate  CO2e per tonne  CO2e total   Basis  Choke points
+                                                                 hours      g per t-km  kg per t cargo          kg
+1   Pickup    Road  GBLGW  GBFXT        139 km                     2.3            92.0            12.8         154  tonnes
+2   Main      Sea   GBFXT  SGSIN     15,402 km                   671.7             7.6           117.1       2,341     teu  Gibraltar, Suez, Bab-el-Mandeb, Malacca
+3   Main      Sea   SGSIN  AUMEL      7,300 km                   391.6             7.6            55.5       1,110     teu  Sunda
+4   Delivery  Road  AUMEL  AUMRS        829 km                    13.8            92.0            76.3         915  tonnes
+Total                                23,670 km                 1,079.5                           261.6       4,520          for 12 t of cargo in 2 TEU
 Modelled minimum = 782.3 h travel + 153.2 h sea operations + 96 h port handling + 48 h connections = 1,079.5 h (45.0 days)
 Timing         = planning lower bound from configured assumptions; excludes carrier schedules, customs and disruption
 CO2e rate      = grams of CO2e emitted moving 1 tonne 1 km (configured factor for the mode)

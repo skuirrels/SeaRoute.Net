@@ -25,6 +25,7 @@ public class MovementTextTests
         string text = result.ToText();
 
         text.Should().StartWith("Leg Kind");
+        text.Should().Contain("Modelled transit time");
         text.Should().Contain("Pickup    Road  GBLGW  GBFXT");
         text.Should().Contain("Main      Sea   GBFXT  SGSIN");
         text.Should().Contain("Delivery  Road  AUMEL  AUMRS");
